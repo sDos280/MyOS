@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "description_tables.h": "c",
+        "utils.h": "c",
+        "types.h": "c",
+        "port.h": "c",
+        "pic.h": "c",
+        "paging.h": "c",
+        "panic.h": "c",
+        "timer.h": "c",
+        "screen.h": "c"
+    }
+}
