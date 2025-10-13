@@ -46,7 +46,7 @@ typedef struct __attribute__ ((aligned (0x1000))) page_directory_struct {
     uint32_t physicalAddr;
 } page_directory_t;
 
-void initialize();
+void initialize_paging();  // initialize the paging module
 void switch_page_directory(page_directory_t * dir);  // switch to the new page directory
 void identity_map_kernal(); // identity maps the kernal, apply the changes to the kernal page directory
 void page_fault(registers_t* regs);  // the page fault handler

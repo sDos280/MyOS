@@ -17,7 +17,7 @@ void kernelMain(const void* multiboot_structure, uint32_t multiboot_magic)
     initialize_timer(50); // Initialize timer to 50Hz
     print("Timer initialized.\n");
     
-    initialize(); // init frame bitmap
+    initialize_paging(); // init paging module
     identity_map_kernal();  // generate identity map and load table
 
     // enable interrupts
