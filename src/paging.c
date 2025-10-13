@@ -70,7 +70,7 @@ void static print_page_directory(page_directory_t* dir) {
     print("End of page directory\n");
 }
 
-void initialize() {
+void initialize_paging() {
     last_address = (uint32_t)&end; // ceil to the next page
 }
 
