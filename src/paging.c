@@ -72,6 +72,8 @@ void static print_page_directory(page_directory_t* dir) {
 
 void initialize_paging() {
     last_address = (uint32_t)&end; // ceil to the next page
+
+    register_interrupt_handler(14, page_fault);
 }
 
 void switch_page_directory(page_directory_t * dir) {
