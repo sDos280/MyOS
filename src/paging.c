@@ -91,8 +91,8 @@ void identity_map_kernal() {
     kernal_directory.physicalAddr = (uint32_t)&kernal_directory;
     current_directory = &kernal_directory;
 
-    // allocate all the tables needed for the kernal
-    size_t table_count = TABLE(last_address) + 1; // +1, for index to count
+    // allocate all the tables needed for the kernal in the start
+    size_t table_count = TABLE(last_address) + 1; // +1, index to count
     for (size_t t = 0; t < table_count; t++) {
         // allocate a page for a page table (return is physical address)
         uint32_t phys = alloc_unfreable_phys(0x1000, 1);
@@ -105,7 +105,31 @@ void identity_map_kernal() {
         kernal_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
     }
 
+    // allocate all the tables needed for the kernal heap
+    table_count = TABLE(KHEAP_INITIAL_SIZE) + 1; // +1, index to count
+    for (size_t t = TABLE(KHEAP_START); t < TABLE(KHEAP_START) + table_count; t++) {
+        // allocate a page for a page table (return is physical address)
+        uint32_t phys = alloc_unfreable_phys(0x1000, 1);
+
+        // Clear the physical page so entries start as not-present
+        memset((void *)phys, 0, 0x1000);
+
+        // store the physical address and a usable virtual pointer (before paging these are identity)
+        kernal_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
+        kernal_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
+    }
+
+    // create kernel identity map
     for(uint32_t addr = 0; addr < placement_address; addr += PAGE_SIZE) {
+        page_table_t * table = kernal_directory.tables[TABLE(addr)];
+        table->entries[PAGE(addr)].present = 1;
+        table->entries[PAGE(addr)].rw = 1;
+        table->entries[PAGE(addr)].user = 0;
+        table->entries[PAGE(addr)].frame = addr >> 12; 
+    }
+
+    // create kernel heap identity map
+    for(uint32_t addr = KHEAP_INITIAL_SIZE; addr < KHEAP_START + KHEAP_INITIAL_SIZE; addr += PAGE_SIZE) {
         page_table_t * table = kernal_directory.tables[TABLE(addr)];
         table->entries[PAGE(addr)].present = 1;
         table->entries[PAGE(addr)].rw = 1;
