@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define KHEAP_START         0xC0000000
+#define KHEAP_START         0x10000000
 #define KHEAP_INITIAL_SIZE  0x100000
 
 #define CHUNK_NOT_IN_US 0

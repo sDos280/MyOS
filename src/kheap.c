@@ -1,5 +1,5 @@
 #include "kheap.h"
-
+#include "screen.h"
 
 extern uint32_t end;
 uint32_t placement_address = (uint32_t)&end; // the last unused address
@@ -73,7 +73,7 @@ void print_heap_status() {
 }
 
 void initialize_heap(){
-    heap_chunk_t (*first_chunk) = KHEAP_START;
+    heap_chunk_t * first_chunk = (heap_chunk_t *)KHEAP_START;
     first_chunk->is_used = CHUNK_NOT_IN_US;
     first_chunk->size = KHEAP_INITIAL_SIZE - sizeof(heap_chunk_t);
     first_chunk->previous = NULL;
@@ -86,14 +86,22 @@ void* kalloc(size_t size){
 
     while (copy != NULL)
     {
-        if (copy->is_used == CHUNK_NOT_IN_US && (copy->size == size + sizeof(heap_chunk_t))){
+        if (copy->is_used == CHUNK_NOT_IN_US && (copy->size > size + sizeof(heap_chunk_t) /* the > in here may be replaced with more rigorous condition */)){
+            // calculate returned chunk position in memory
             void * position_after_chunk = (void *)copy + copy->size + sizeof(heap_chunk_t);
             heap_chunk_t * to_be_returned = (heap_chunk_t *)(position_after_chunk - size - sizeof(heap_chunk_t));
+
+            // set list's pointers
             to_be_returned->next = copy->next;
             copy->next = to_be_returned;
             to_be_returned->previous = to_be_returned;
+
+            // initialize chunk
             to_be_returned->is_used = CHUNK_IN_US;
             to_be_returned->size = size;
+
+            // update current chunk size
+            copy->size -= size + sizeof(heap_chunk_t);
 
             return (void *)to_be_returned + sizeof(heap_chunk_t);
         }

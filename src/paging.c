@@ -14,7 +14,7 @@ uint32_t last_address;
 
 extern uint32_t placement_address; // defined in kheap.c
 
-page_directory_t kernal_directory;
+page_directory_t kernel_directory;
 page_directory_t * current_directory;
 
 void static print_page_directory(page_directory_t* dir) {
@@ -86,10 +86,10 @@ void switch_page_directory(page_directory_t * dir) {
 }
 
 void identity_map_kernal() {
-    memset(&kernal_directory, 0, sizeof(page_directory_t));
+    memset(&kernel_directory, 0, sizeof(page_directory_t));
     
-    kernal_directory.physicalAddr = (uint32_t)&kernal_directory;
-    current_directory = &kernal_directory;
+    kernel_directory.physicalAddr = (uint32_t)&kernel_directory;
+    current_directory = &kernel_directory;
 
     // allocate all the tables needed for the kernal in the start
     size_t table_count = TABLE(last_address) + 1; // +1, index to count
@@ -101,8 +101,8 @@ void identity_map_kernal() {
         memset((void *)phys, 0, 0x1000);
 
         // store the physical address and a usable virtual pointer (before paging these are identity)
-        kernal_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
-        kernal_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
+        kernel_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
+        kernel_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
     }
 
     // allocate all the tables needed for the kernal heap
@@ -115,13 +115,13 @@ void identity_map_kernal() {
         memset((void *)phys, 0, 0x1000);
 
         // store the physical address and a usable virtual pointer (before paging these are identity)
-        kernal_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
-        kernal_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
+        kernel_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
+        kernel_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
     }
 
     // create kernel identity map
     for(uint32_t addr = 0; addr < placement_address; addr += PAGE_SIZE) {
-        page_table_t * table = kernal_directory.tables[TABLE(addr)];
+        page_table_t * table = kernel_directory.tables[TABLE(addr)];
         table->entries[PAGE(addr)].present = 1;
         table->entries[PAGE(addr)].rw = 1;
         table->entries[PAGE(addr)].user = 0;
@@ -129,15 +129,19 @@ void identity_map_kernal() {
     }
 
     // create kernel heap identity map
-    for(uint32_t addr = KHEAP_INITIAL_SIZE; addr < KHEAP_START + KHEAP_INITIAL_SIZE; addr += PAGE_SIZE) {
-        page_table_t * table = kernal_directory.tables[TABLE(addr)];
+    for(uint32_t addr = KHEAP_START; addr < KHEAP_START + KHEAP_INITIAL_SIZE; addr += PAGE_SIZE) {
+        page_table_t * table = kernel_directory.tables[TABLE(addr)];
         table->entries[PAGE(addr)].present = 1;
         table->entries[PAGE(addr)].rw = 1;
         table->entries[PAGE(addr)].user = 0;
         table->entries[PAGE(addr)].frame = addr >> 12; 
     }
 
-    switch_page_directory(&kernal_directory);
+    print("KHEAP_START table pointer: ");
+    print_hex((uint32_t)kernel_directory.tables[TABLE(KHEAP_START)]);
+    print("\n");
+
+    switch_page_directory(&kernel_directory);
 }
 
 void page_fault(registers_t* regs) {

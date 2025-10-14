@@ -64,7 +64,7 @@ iso: $(KERNEL_ELF)
 
 # Run with QEMU (after ISO is created)
 run: iso
-	$(QEMU) -cdrom $(ISO_IMAGE)
+	$(QEMU) -m 4096 -cdrom $(ISO_IMAGE)
 
 # Run with QEMU in debug mode
 # enter gdb in wsl
