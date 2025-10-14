@@ -67,6 +67,7 @@ run: iso
 	$(QEMU) -cdrom $(ISO_IMAGE)
 
 # Run with QEMU in debug mode
+# enter gdb in wsl
 # gdb /mnt/c/Users/DorSh/Projects/MyOSv3/build/mykernel.elf
 # target remote :1234
 debug: CFLAGS += -g
