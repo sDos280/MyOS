@@ -137,10 +137,6 @@ void identity_map_kernal() {
         table->entries[PAGE(addr)].frame = addr >> 12; 
     }
 
-    print("KHEAP_START table pointer: ");
-    print_hex((uint32_t)kernel_directory.tables[TABLE(KHEAP_START)]);
-    print("\n");
-
     switch_page_directory(&kernel_directory);
 }
 
