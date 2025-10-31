@@ -31,7 +31,7 @@ void print_heap_status() {
     heap_chunk_t *current_chunk = kernel_heap.heap_first;
     uint32_t chunk_count = 0;
 
-    while (current_chunk != 0) {
+    while (current_chunk != NULL) {
         chunk_count++;
 
         print("Chunk #");
@@ -82,39 +82,41 @@ void initialize_heap(){
 }
 
 void* kalloc(size_t size){
-    heap_chunk_t * copy = kernel_heap.heap_first;
+    heap_chunk_t * current = kernel_heap.heap_first;
 
-    while (copy != NULL)
+    while (current != NULL)
     {
-        if (copy->is_used == CHUNK_NOT_IN_US && (copy->size > size + sizeof(heap_chunk_t) /* the > in here may be replaced with more rigorous condition */)){
+        if (current->is_used == CHUNK_NOT_IN_US && (current->size > size + sizeof(heap_chunk_t) /* the > in here may be replaced with more rigorous condition */)){
             // calculate returned chunk position in memory
-            void * position_after_chunk = (void *)copy + copy->size + sizeof(heap_chunk_t);
-            heap_chunk_t * to_be_returned = (heap_chunk_t *)(position_after_chunk - size - sizeof(heap_chunk_t));
+            void * position_after_chunk = (void *)current + current->size + sizeof(heap_chunk_t);
+            heap_chunk_t * new = (heap_chunk_t *)(position_after_chunk - size - sizeof(heap_chunk_t));
+            
+            // NOTE: next = current->next
 
             // set list's pointers
             // set pointers for next
-            if (copy->next != NULL) {
-                copy->next->previous = to_be_returned;
+            if (current->next != NULL) {
+                current->next->previous = new;
             }
 
             // set pointers of new chunk
-            to_be_returned->next = copy->next;
-            to_be_returned->previous = copy;
+            new->next = current->next;
+            new->previous = current;
 
             // set current chunk pointers
-            copy->next = to_be_returned;
+            current->next = new;
 
             // initialize chunk
-            to_be_returned->is_used = CHUNK_IN_US;
-            to_be_returned->size = size;
+            new->is_used = CHUNK_IN_US;
+            new->size = size;
 
             // update current chunk size
-            copy->size -= size + sizeof(heap_chunk_t);
+            current->size -= size + sizeof(heap_chunk_t);
 
-            return (void *)to_be_returned + sizeof(heap_chunk_t);
+            return (void *)new + sizeof(heap_chunk_t);
         }
 
-        copy = copy->next;
+        current = current->next;
     }
 }
 
@@ -123,4 +125,44 @@ void kfree(void * user_pointer) {
 
     // update chunk status
     chunk->is_used = CHUNK_NOT_IN_US;
+    
+    // assimilate next chunk to the current chunk if he is free
+    if (chunk->next != NULL && chunk->next->is_used == CHUNK_NOT_IN_US) {
+        // change the prespective to the next chunk
+        heap_chunk_t * next = chunk->next->next;
+        heap_chunk_t * current = chunk->next;
+        heap_chunk_t * previous = chunk;
+
+        // update pointers of next
+        if (next != NULL) {
+            next->previous = previous;
+        }
+        
+        // there isn't a need to update the pointers of current since it will be assimilated to previous
+        // update pointers of previous
+        previous->next = next;
+
+        // update the previous (in the current prespective) chunk size
+        previous->size += sizeof(heap_chunk_t) + current->size;
+    }
+
+    // assimilate current chunk to the previous chunk if he is free
+    if (chunk->previous != NULL && chunk->previous->is_used == CHUNK_NOT_IN_US) {
+        // preserve the current prespective
+        heap_chunk_t * next = chunk->next;
+        heap_chunk_t * current = chunk;
+        heap_chunk_t * previous = chunk->previous;
+
+        // update pointers of next
+        if (next != NULL) {
+            next->previous = previous;
+        }
+        
+        // there isn't a need to update the pointers of current since it will be assimilated to previous
+        // update pointers of previous
+        previous->next = next;
+
+        // update the previous (in the current prespective) chunk size
+        previous->size += sizeof(heap_chunk_t) + current->size;
+    }
 }

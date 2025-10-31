@@ -14,8 +14,8 @@ global loader
 
 loader:
     mov esp, stack_top
-    push eax          ; multiboot_structure
-    push ebx          ; multiboot_magic
+    push eax          ; multiboot_magic
+    push ebx          ; multiboot_structure
     call kernelMain
 
 _stop:

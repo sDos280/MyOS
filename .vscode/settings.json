@@ -8,6 +8,8 @@
         "paging.h": "c",
         "panic.h": "c",
         "timer.h": "c",
-        "screen.h": "c"
+        "screen.h": "c",
+        "multiboot.h": "c",
+        "kheap.h": "c"
     }
 }

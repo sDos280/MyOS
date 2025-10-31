@@ -3,11 +3,17 @@
 #include "screen.h"
 #include "timer.h"
 #include "paging.h"
+#include "multiboot.h"
 #include "kheap.h"
+#include "panic.h"
 
 // Entry point called by GRUB
-void kernelMain(const void* multiboot_structure, uint32_t multiboot_magic)
+void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
+    if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+        PANIC("Error: multiboot magic number unknown")
+    }
+    
     initialize_gdt();
     clear_screen();
     print("Hello, Kernel World!\n");
@@ -29,5 +35,26 @@ void kernelMain(const void* multiboot_structure, uint32_t multiboot_magic)
     void* second = kalloc(4);
     print_heap_status();
 
+    kfree(first);
+
+    print_heap_status();
+
+    kfree(second);
+
+    print_heap_status();
+
+    first = kalloc(0x100);
+    second = kalloc(0x100);
+
+    print_heap_status();
+
+    kfree(second);
+
+    print_heap_status();
+    
+    kfree(first);
+
+    print_heap_status();
+    
     while (1);
 }
