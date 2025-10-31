@@ -2,17 +2,17 @@
 #include "types.h"
 
 volatile char *video = (volatile char*)0xB8000;
-
+static uint32_t x = 0;
+static uint32_t y = 0;
 void clear_screen() {
+    x = 0;
+    y = 0;
     for(int i = 0; i < 80 * 25 * 2; i++) {
         video[i] = 0;
     }
 }
 
 void print(const char* str) {
-    static uint32_t x = 0;
-    static uint32_t y = 0;
-
     while (*str) {
         if (*str == '\n') {
             x = 0;
