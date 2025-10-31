@@ -92,9 +92,17 @@ void* kalloc(size_t size){
             heap_chunk_t * to_be_returned = (heap_chunk_t *)(position_after_chunk - size - sizeof(heap_chunk_t));
 
             // set list's pointers
+            // set pointers for next
+            if (copy->next != NULL) {
+                copy->next->previous = to_be_returned;
+            }
+
+            // set pointers of new chunk
             to_be_returned->next = copy->next;
+            to_be_returned->previous = copy;
+
+            // set current chunk pointers
             copy->next = to_be_returned;
-            to_be_returned->previous = to_be_returned;
 
             // initialize chunk
             to_be_returned->is_used = CHUNK_IN_US;
@@ -108,4 +116,11 @@ void* kalloc(size_t size){
 
         copy = copy->next;
     }
+}
+
+void kfree(void * user_pointer) {
+    heap_chunk_t * chunk = (heap_chunk_t *)(user_pointer - sizeof(heap_chunk_t));
+
+    // update chunk status
+    chunk->is_used = CHUNK_NOT_IN_US;
 }
