@@ -6,6 +6,7 @@
 #include "multiboot.h"
 #include "kheap.h"
 #include "panic.h"
+#include "keyboard_driver.h"
 
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
@@ -27,34 +28,18 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     initialize_paging(); // init paging module
     identity_map_kernal();  // generate identity map and load table
 
+    initialize_keyboard_driver();  // initialize the keyboard driver
+
     // enable interrupts
-    //asm volatile ("sti");
+    asm volatile ("sti");
 
-    initialize_heap();
-    void* first = kalloc(4);
-    void* second = kalloc(4);
-    print_heap_status();
 
-    kfree(first);
-
-    print_heap_status();
-
-    kfree(second);
-
-    print_heap_status();
-
-    first = kalloc(0x100);
-    second = kalloc(0x100);
-
-    print_heap_status();
-
-    kfree(second);
-
-    print_heap_status();
-    
-    kfree(first);
-
-    print_heap_status();
-    
-    while (1);
+    while (1) {
+        char c = get_asynchronized_char();
+        if (c != 0) {
+            print("Char: ");
+            print_char(c);
+            print("\n");
+        }
+    }
 }
