@@ -36,10 +36,12 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
 
     while (1) {
         char c = get_asynchronized_char();
-        if (c != 0) {
+        while (c != 0) {
             print("Char: ");
             print_char(c);
             print("\n");
+
+            c = get_asynchronized_char();
         }
     }
 }

@@ -10,6 +10,8 @@
         "timer.h": "c",
         "screen.h": "c",
         "multiboot.h": "c",
-        "kheap.h": "c"
+        "kheap.h": "c",
+        "key_mouse.h": "c",
+        "keyboard_driver.h": "c"
     }
 }

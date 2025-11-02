@@ -126,18 +126,20 @@ void keyboard_handle_scancode(uint8_t scancode) {
     if (key_index == 0xFF) return; // unmapped
 
     if (is_break) {
-        keyboard_state[key_index].pressed == KEY_RELEASED;
+        keyboard_state[key_index].pressed = KEY_RELEASED;
     }
     else {
-        keyboard_state[key_index].pressed == KEY_PRESSED;
+        keyboard_state[key_index].pressed = KEY_PRESSED;
 
-        key_queue.head = (key_queue.head+1) % KEY_QUEUE_SIZE; // get the new key index
+        uint32_t next_head = (key_queue.head+1) % KEY_QUEUE_SIZE; // get the new key index
 
-        if (key_queue.head == key_queue.tail) 
+        if (next_head == key_queue.tail) 
             key_queue.tail = (key_queue.tail+1) % KEY_QUEUE_SIZE; // check if head rolled back to tail
 
         char ascii = key_to_ascii(key_index);
         key_queue.queue[key_queue.head] = ascii;
+
+        key_queue.head = next_head;  // update the head
     }
 }
 
@@ -162,7 +164,6 @@ char get_asynchronized_char() {
     if (key_queue.head == key_queue.tail) return 0; // queue is empty, return 0
 
     char out = key_queue.queue[key_queue.tail];
-
     key_queue.tail = (key_queue.tail+1) % KEY_QUEUE_SIZE;
 
     return out;
