@@ -4,11 +4,28 @@
 volatile char *video = (volatile char*)0xB8000;
 static uint32_t x = 0;
 static uint32_t y = 0;
+
 void clear_screen() {
     x = 0;
     y = 0;
     for(int i = 0; i < 80 * 25 * 2; i++) {
         video[i] = 0;
+    }
+}
+
+void print_char(char c) {
+    video[(y * 80 + x) * 2] = c;
+    video[(y * 80 + x) * 2 + 1] = 0x07; // Light grey on black background
+    x++;
+    if (x >= 80) {
+        x = 0;
+        y++;
+    }
+
+    if (y >= 25) {
+        clear_screen();
+        x = 0;
+        y = 0;
     }
 }
 
@@ -18,19 +35,7 @@ void print(const char* str) {
             x = 0;
             y++;
         } else {
-            video[(y * 80 + x) * 2] = *str;
-            video[(y * 80 + x) * 2 + 1] = 0x07; // Light grey on black background
-            x++;
-            if (x >= 80) {
-                x = 0;
-                y++;
-            }
-
-            if (y >= 25) {
-                clear_screen();
-                x = 0;
-                y = 0;
-            }
+            print_char(*str);
         }
         
         str++;
