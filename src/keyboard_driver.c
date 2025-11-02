@@ -6,6 +6,8 @@
 // Each index is the PS/2 Set 1 scan code
 // 0xFF = unmapped / unused.
 uint8_t scancode_to_key_index[256] = {
+    [0 ... 255] = 0xFF, // mark all unmapped first
+    
     // 0x00 – 0x0F
     [0x01] = KEY_ESC,
     [0x02] = KEY_1,
@@ -130,7 +132,6 @@ void keyboard_handle_scancode(uint8_t scancode) {
     }
     else {
         keyboard_state[key_index].pressed = KEY_PRESSED;
-
         uint32_t next_head = (key_queue.head+1) % KEY_QUEUE_SIZE; // get the new key index
 
         if (next_head == key_queue.tail) 
@@ -158,6 +159,10 @@ void keyboard_handler(registers_t* regs){
     uint8_t scancode = inb(0x60);
 
     keyboard_handle_scancode(scancode);
+}
+
+uint8_t is_key_pressed(uint8_t key){
+    return keyboard_state[key].pressed == KEY_PRESSED;
 }
 
 char get_asynchronized_char() {

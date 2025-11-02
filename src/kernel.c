@@ -44,6 +44,10 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
             print_char(c);
             print("\n");
 
+            if (is_key_pressed(KEY_G)) {
+                print("Up!\n");
+            }
+
             c = get_asynchronized_char();
         }
     }
