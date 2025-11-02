@@ -14,9 +14,16 @@ void clear_screen() {
 }
 
 void print_char(char c) {
-    video[(y * 80 + x) * 2] = c;
-    video[(y * 80 + x) * 2 + 1] = 0x07; // Light grey on black background
-    x++;
+    if (c == '\n') {
+        x = 0;
+        y++;
+    } else {
+        video[(y * 80 + x) * 2] = c;
+        video[(y * 80 + x) * 2 + 1] = 0x07; // Light grey on black background
+        x++;
+    }
+    
+    
     if (x >= 80) {
         x = 0;
         y++;
@@ -31,13 +38,7 @@ void print_char(char c) {
 
 void print(const char* str) {
     while (*str) {
-        if (*str == '\n') {
-            x = 0;
-            y++;
-        } else {
-            print_char(*str);
-        }
-        
+        print_char(*str);
         str++;
     }
 }
