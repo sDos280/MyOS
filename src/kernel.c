@@ -16,6 +16,9 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     }
     
     initialize_gdt();
+
+    initialize_screen();  // initialize the screen
+    
     clear_screen();
     print("Hello, Kernel World!\n");
 

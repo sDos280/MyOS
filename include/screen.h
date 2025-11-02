@@ -3,6 +3,7 @@
 
 #include "types.h"
 
+void initialize_screen();
 void clear_screen();
 void print_char(char c);
 void print(const char* str);

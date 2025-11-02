@@ -1,39 +1,81 @@
 #include "screen.h"
 #include "types.h"
+#include "utils.h"
+
+#define SCREEN_COLUMNS 80
+#define SCREEN_ROWS 25
+#define ROW_FACTOR 4
+#define SCREEN_BUFFER_COLUMNS 80
+#define SCREEN_BUFFER_ROWS (SCREEN_ROWS * ROW_FACTOR)
+
 
 volatile char *video = (volatile char*)0xB8000;
-static uint32_t x = 0;
-static uint32_t y = 0;
+static uint32_t screen_start_row;
+// Note: the [row, column] is index that is next to be writen
+static uint32_t row = 0;
+static uint32_t column = 0;
 
-void clear_screen() {
-    x = 0;
-    y = 0;
-    for(int i = 0; i < 80 * 25 * 2; i++) {
-        video[i] = 0;
+char screen_buffer[SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS * 2];
+
+void initialize_screen() {
+    clear_screen();
+}
+
+static void blip_to_screen() {
+    for (uint32_t y = 0; y < SCREEN_ROWS; y++) {
+        for (uint32_t x = 0; x < SCREEN_COLUMNS; x++) {
+            video[(y * SCREEN_COLUMNS + x) * 2] = 
+                screen_buffer[(((y + screen_start_row) % SCREEN_BUFFER_ROWS) * SCREEN_BUFFER_COLUMNS + x) * 2];
+            video[(y * SCREEN_COLUMNS + x) * 2 + 1] = 
+                screen_buffer[(((y + screen_start_row) % SCREEN_BUFFER_ROWS) * SCREEN_BUFFER_COLUMNS + x) * 2 + 1];
+        }
     }
 }
 
-void print_char(char c) {
-    if (c == '\n') {
-        x = 0;
-        y++;
-    } else {
-        video[(y * 80 + x) * 2] = c;
-        video[(y * 80 + x) * 2 + 1] = 0x07; // Light grey on black background
-        x++;
-    }
-    
-    
-    if (x >= 80) {
-        x = 0;
-        y++;
+void clear_screen() {
+    // reset screen and buffer parameters
+    row = 0;
+    column = 0;
+    screen_start_row = 0;
+
+    for (uint32_t r = 0; r < SCREEN_BUFFER_ROWS; r++) {
+        for (uint32_t c = 0; c < SCREEN_BUFFER_COLUMNS; c++) {
+            screen_buffer[(r * SCREEN_BUFFER_COLUMNS + c) * 2] = 0;
+            screen_buffer[(r * SCREEN_BUFFER_COLUMNS + c) * 2 + 1] = 0x07; // Light grey on black background
+        }
     }
 
-    if (y >= 25) {
-        clear_screen();
-        x = 0;
-        y = 0;
+    blip_to_screen();
+}
+
+void print_char(char c) {
+    // write and update the buffer
+    // uint8_t is_write_over_screen;
+
+    if (c == '\n') {
+        column = 0;
+        row++;
+    } else {
+        screen_buffer[(row  * SCREEN_BUFFER_COLUMNS + column) * 2] = c;
+        screen_buffer[(row  * SCREEN_BUFFER_COLUMNS + column) * 2 + 1] = 0x07; // Light grey on black background
+
+        column++;
     }
+    
+    if (column >= SCREEN_BUFFER_COLUMNS) {
+        column = 0;
+        row++;
+    }
+
+    if (row >= SCREEN_BUFFER_ROWS) 
+        clear_screen();
+    
+    // check if next write will be over the screen
+    if ((row - screen_start_row) % SCREEN_BUFFER_ROWS >= SCREEN_ROWS) {
+        screen_start_row = (screen_start_row + 1) % SCREEN_BUFFER_ROWS;
+    }
+
+    blip_to_screen();
 }
 
 void print(const char* str) {
