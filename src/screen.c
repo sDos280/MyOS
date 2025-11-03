@@ -99,14 +99,28 @@ void printf(const char* format, ...) {
                 print_int(va_arg(args, int));
             }
 
-            else if (*format == 'x' || *format == 'X') {
-                // Fetch the next argument as an integer and print it
+            else if (*format == 'c') {
+                // Fetch the next argument as an char and print it
+                print_char(va_arg(args, char));
+            }
+
+            else if (*format == 'x') {
+                // Fetch the next argument as an hex and print it
+                print_hex(va_arg(args, uint32_t));
+            }
+
+            else if (*format == 'p') {
+                // Fetch the next argument as an hex and print it
                 print_hex(va_arg(args, uint32_t));
             }
 
             else if (*format == 's') {
                 // Fetch the next argument as a string and print it
                 print_const_string(va_arg(args, char *));
+            } else {
+                // in case of unknown format spesifier
+                print_char('%');
+                print_char(*format);
             }
         }
 

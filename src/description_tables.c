@@ -117,14 +117,8 @@ void isr_stub_handler(registers_t regs){
         isr_handler handler = interrupt_handlers[regs.int_no];
         handler(&regs);
     } else {
-        print_const_string("No handler registered for this interrupt.\n");
-        print_const_string("Received interrupt: ");
-        print_hex(regs.int_no);
-        print_const_string("   Err code: ");
-        print_hex(regs.err_code);
-        print_const_string("   Tick: ");
-        print_int(isr_tick++);
-        print_const_string("\n");
+        printf("No handler registered for this interrupt.\n");
+        printf("Received interrupt: %x   Err code: %x   Tick: %d\n", regs.int_no, regs.err_code, isr_tick++);
     }
     
     

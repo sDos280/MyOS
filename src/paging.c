@@ -155,14 +155,12 @@ void page_fault(registers_t* regs) {
     int id = regs->err_code & 0x10;          // Caused by an instruction fetch?
 
     // Output an error message.
-    print_const_string("Page fault! ( ");
-    if (present) {print_const_string("present ");}
-    if (rw) {print_const_string("read-only ");}
-    if (us) {print_const_string("user-mode ");}
-    if (reserved) {print_const_string("reserved ");}
-    print_const_string(") at ");
-    print_hex(faulting_address);
-    print_const_string("\n");
+    printf("Page fault! ( ");
+    if (present) {printf("present ");}
+    if (rw) {printf("read-only ");}
+    if (us) {printf("user-mode ");}
+    if (reserved) {printf("reserved ");}
+    printf(") at %p\n", faulting_address);
     PANIC("Page fault");
 }
 
