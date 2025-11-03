@@ -1,6 +1,7 @@
 #include "screen.h"
 #include "types.h"
 #include "utils.h"
+#include "arg.h"
 
 #define SCREEN_COLUMNS 80
 #define SCREEN_ROWS 25
@@ -78,7 +79,44 @@ void print_char(char c) {
     blip_to_screen();
 }
 
-void print(const char* str) {
+void printf(const char* format, ...) {
+    // https://medium.com/@turman1701/va-list-in-c-exploring-ft-printf-bb2a19fcd128
+    va_list args; // Declare a va_list variable to manage the variable arguments
+
+    // Initialize the va_list 'args' to start at the argument after 'format'
+    va_start(args, format);
+ 
+    while (*format)  {// Loop through the format string
+        // If a format specifier is encountered
+        if (*format != '%') {
+            // Print regular characters
+            print_char(*format);
+        } else {
+            format++;
+        
+            if (*format == 'd') {
+                // Fetch the next argument as an integer and print it
+                print_int(va_arg(args, int));
+            }
+
+            else if (*format == 'x' || *format == 'X') {
+                // Fetch the next argument as an integer and print it
+                print_hex(va_arg(args, uint32_t));
+            }
+
+            else if (*format == 's') {
+                // Fetch the next argument as a string and print it
+                print_const_string(va_arg(args, char *));
+            }
+        }
+
+        format++;
+    }
+ 
+    va_end(args);
+}
+
+void print_const_string(const char* str) {
     while (*str) {
         print_char(*str);
         str++;
@@ -87,7 +125,7 @@ void print(const char* str) {
 
 void print_int(uint32_t num){
     if(num == 0){
-        print("0");
+        print_const_string("0");
         return;
     }
 
@@ -102,14 +140,14 @@ void print_int(uint32_t num){
     // Digits are in reverse order, so print them backwards
     for(int j = i - 1; j >= 0; j--){
         char str[2] = {buffer[j], '\0'};
-        print(str);
+        print_const_string(str);
     }
 }
 
 void print_hex(uint32_t num) {
-    print("0x");
+    print_const_string("0x");
     if (num == 0) {
-        print("0");
+        print_const_string("0");
         return;
     }
 
@@ -129,6 +167,6 @@ void print_hex(uint32_t num) {
     // Digits are in reverse order, so print them backwards
     for (int j = i - 1; j >= 0; j--) {
         char str[2] = {buffer[j], '\0'};
-        print(str);
+        print_const_string(str);
     }
 }

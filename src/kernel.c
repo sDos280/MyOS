@@ -20,13 +20,13 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     initialize_screen();  // initialize the screen
     
     clear_screen();
-    print("Hello, Kernel World!\n");
+    print_const_string("Hello, Kernel World!\n");
 
     initialize_idt();
-    print("IDT initialized.\n");
+    print_const_string("IDT initialized.\n");
 
     initialize_timer(50); // Initialize timer to 50Hz
-    print("Timer initialized.\n");
+    print_const_string("Timer initialized.\n");
     
     initialize_paging(); // init paging module
     identity_map_kernal();  // generate identity map and load table
@@ -40,12 +40,12 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     while (1) {
         char c = get_asynchronized_char();
         while (c != 0) {
-            print("Char: ");
+            print_const_string("Char: ");
             print_char(c);
-            print("\n");
+            print_const_string("\n");
 
             if (is_key_pressed(KEY_G)) {
-                print("Up!\n");
+                print_const_string("Up!\n");
             }
 
             c = get_asynchronized_char();

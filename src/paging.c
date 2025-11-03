@@ -20,54 +20,54 @@ page_directory_t * current_directory;
 void static print_page_directory(page_directory_t* dir) {
     clear_screen();
 
-    print("Page Directory Table:\n");
-    print("====================\n");
+    print_const_string("Page Directory Table:\n");
+    print_const_string("====================\n");
 
     for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
         page_table_t* table = dir->tables[pd_idx];
         if (!table) continue; // skip empty tables
 
-        print("PD Entry ");
+        print_const_string("PD Entry ");
         print_int(pd_idx);
-        print(": Table at ");
+        print_const_string(": Table at ");
         print_hex((uint32_t)table);
-        print("\n");
+        print_const_string("\n");
 
         // Print table header
-        print("  PT Index | Present | R/W | User | Frame\n");
-        print("  --------------------------------------\n");
+        print_const_string("  PT Index | Present | R/W | User | Frame\n");
+        print_const_string("  --------------------------------------\n");
 
         for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
             page_t* entry = &table->entries[pt_idx];
 
             if (!entry->present) continue; // skip not-present pages
 
-            print("  ");
+            print_const_string("  ");
             print_int(pt_idx);
-            print("        | ");
+            print_const_string("        | ");
 
             // Present
             print_int(entry->present);
-            print("       | ");
+            print_const_string("       | ");
 
             // R/W
             print_int(entry->rw);
-            print("   | ");
+            print_const_string("   | ");
 
             // User
             print_int(entry->user);
-            print("    | ");
+            print_const_string("    | ");
 
             // Frame
             print_hex(entry->frame);
-            print("\n");
+            print_const_string("\n");
         }
 
-        print("\n");
+        print_const_string("\n");
     }
 
-    print("====================\n");
-    print("End of page directory\n");
+    print_const_string("====================\n");
+    print_const_string("End of page directory\n");
 }
 
 void initialize_paging() {
@@ -155,14 +155,14 @@ void page_fault(registers_t* regs) {
     int id = regs->err_code & 0x10;          // Caused by an instruction fetch?
 
     // Output an error message.
-    print("Page fault! ( ");
-    if (present) {print("present ");}
-    if (rw) {print("read-only ");}
-    if (us) {print("user-mode ");}
-    if (reserved) {print("reserved ");}
-    print(") at ");
+    print_const_string("Page fault! ( ");
+    if (present) {print_const_string("present ");}
+    if (rw) {print_const_string("read-only ");}
+    if (us) {print_const_string("user-mode ");}
+    if (reserved) {print_const_string("reserved ");}
+    print_const_string(") at ");
     print_hex(faulting_address);
-    print("\n");
+    print_const_string("\n");
     PANIC("Page fault");
 }
 

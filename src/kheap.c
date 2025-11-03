@@ -21,10 +21,10 @@ uint32_t alloc_unfreable_phys(size_t size, uint8_t align) {
 
 void print_heap_status() {
     clear_screen();
-    print("--- Kernel Heap Status ---\n");
+    print_const_string("--- Kernel Heap Status ---\n");
     
     if (kernel_heap.heap_first == NULL) {
-        print("Heap is empty or uninitialized.\n");
+        print_const_string("Heap is empty or uninitialized.\n");
         return;
     }
 
@@ -34,42 +34,42 @@ void print_heap_status() {
     while (current_chunk != NULL) {
         chunk_count++;
 
-        print("Chunk #");
+        print_const_string("Chunk #");
         print_int(chunk_count);
-        print(" at address: ");
+        print_const_string(" at address: ");
         // Print the address of the actual chunk structure
         print_hex((uint32_t)current_chunk); 
-        print("\n");
+        print_const_string("\n");
 
-        print("  Status: ");
+        print_const_string("  Status: ");
         if (current_chunk->is_used == CHUNK_IN_US) {
-            print("USED");
+            print_const_string("USED");
         } else {
-            print("FREE");
+            print_const_string("FREE");
         }
-        print("\n");
+        print_const_string("\n");
 
-        print("  User Data Size: ");
+        print_const_string("  User Data Size: ");
         print_int(current_chunk->size);
-        print(" bytes\n");
+        print_const_string(" bytes\n");
 
-        print("  Previous Chunk: ");
+        print_const_string("  Previous Chunk: ");
         print_hex((uint32_t)current_chunk->previous);
-        print("\n");
+        print_const_string("\n");
 
-        print("  Next Chunk: ");
+        print_const_string("  Next Chunk: ");
         print_hex((uint32_t)current_chunk->next);
-        print("\n");
+        print_const_string("\n");
         
-        print("\n");
+        print_const_string("\n");
 
         // Move to the next chunk in the linked list
         current_chunk = current_chunk->next;
     }
 
-    print("--- End of Heap Status (Total Chunks: ");
+    print_const_string("--- End of Heap Status (Total Chunks: ");
     print_int(chunk_count);
-    print(") ---\n");
+    print_const_string(") ---\n");
 }
 
 void initialize_heap(){

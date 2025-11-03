@@ -6,7 +6,8 @@
 void initialize_screen();
 void clear_screen();
 void print_char(char c);
-void print(const char* str);
+void printf(const char* format, ...);
+void print_const_string(const char* str);
 void print_int(uint32_t num);
 void print_hex(uint32_t num);
 
