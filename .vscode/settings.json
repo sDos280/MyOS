@@ -15,6 +15,7 @@
         "keyboard_driver.h": "c",
         "compare": "cpp",
         "type_traits": "cpp",
-        "stdarg.h": "c"
+        "stdarg.h": "c",
+        "multiboot_helper.h": "c"
     }
 }

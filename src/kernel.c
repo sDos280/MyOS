@@ -38,17 +38,6 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     // enable interrupts
     asm volatile ("sti");
 
-    print_heap_status();
-    while (1) {
-        char c = get_asynchronized_char();
-        while (c != 0) {
-            printf("Char: %c\n", c);
-
-            if (is_key_pressed(KEY_G)) {
-                printf("Up!\n");
-            }
-
-            c = get_asynchronized_char();
-        }
-    }
+    print_multiboot_usable_memory_map(multiboot_info_structure->mmap_length, multiboot_info_structure->mmap_addr);
+    while (1);
 }

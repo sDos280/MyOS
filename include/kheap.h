@@ -27,4 +27,4 @@ void initialize_heap();  // initiate the heap maneger
 void* kalloc(size_t size); // allocate memory
 void kfree(void * chunk); // free a chunk
 
-#endif
+#endif // KHEAP_H
