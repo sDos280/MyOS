@@ -8,11 +8,9 @@ static uint32_t base_frequency = 1193180; // The PIT runs at 1.19318 MHz
 void timer_interrupt_handler(registers_t* regs){
     static uint32_t tick = 0;
     tick++;
-    // if (tick % used_frequency == 0) { // Every second
-    //     print("Tick: ");
-    //     print_int(tick / used_frequency);
-    //     print("\n");
-    // }
+    /*if (tick % used_frequency == 0) { // Every second
+        printf("Tick: %d\n", tick / used_frequency);
+    }*/
 }
 
 void initialize_timer(uint32_t frequency){

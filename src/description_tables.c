@@ -118,9 +118,10 @@ void isr_stub_handler(registers_t regs){
         handler(&regs);
     } else {
         printf("No handler registered for this interrupt.\n");
-        printf("Received interrupt: %x   Err code: %x   Tick: %d\n", regs.int_no, regs.err_code, isr_tick++);
+        printf("Received interrupt: %x   Err code: %x   Tick: %d\n", regs.int_no, regs.err_code, isr_tick);
     }
     
+    isr_tick++;
     
     pic_sendEOI(regs.int_no); // If the interrupt involved the PIC irq send EOI
 }

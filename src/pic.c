@@ -5,9 +5,9 @@ void pic_sendEOI(uint8_t irq)
 	if (irq >= 32 && irq <= 47) {
         // If the interrupt came from the slave PIC (IRQ8–15)
         if (irq >= 40) {
-            outb(0xA0, PIC_EOI); // EOI to slave
+            outb(PIC2_COMMAND, PIC_EOI); // EOI to slave
         }
-        outb(0x20, PIC_EOI); // Always send EOI to master
+        outb(PIC1_COMMAND, PIC_EOI); // Always send EOI to master
     }
 }
 

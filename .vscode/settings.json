@@ -16,6 +16,7 @@
         "compare": "cpp",
         "type_traits": "cpp",
         "stdarg.h": "c",
-        "multiboot_helper.h": "c"
+        "multiboot_helper.h": "c",
+        "ata_driver.h": "c"
     }
 }

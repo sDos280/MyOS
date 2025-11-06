@@ -7,6 +7,8 @@
 #include "kheap.h"
 #include "panic.h"
 #include "keyboard_driver.h"
+#include "multiboot_helper.h"
+#include "ata_driver.h"
 
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
@@ -38,6 +40,8 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     // enable interrupts
     asm volatile ("sti");
 
-    print_multiboot_usable_memory_map(multiboot_info_structure->mmap_length, multiboot_info_structure->mmap_addr);
+    initiate_ata_driver();
+    ata_send_identify_command(ATA_PRIMARY, ATA_MASTER_DRIVE);
+
     while (1);
 }

@@ -24,6 +24,7 @@ OBJECTS = $(OBJECTS_S) $(OBJECTS_C)
 KERNEL_ELF = $(BUILD_DIR)/mykernel.elf
 KERNEL_BIN = $(BUILD_DIR)/mykernel.bin
 ISO_IMAGE  = $(BUILD_DIR)/mykernel.iso
+VIRTUAL_DISK = $(BUILD_DIR)/vrdisk.img
 
 # Default target
 all: $(KERNEL_ELF) $(KERNEL_BIN)
@@ -64,7 +65,7 @@ iso: $(KERNEL_ELF)
 
 # Run with QEMU (after ISO is created)
 run: iso
-	$(QEMU) -m 4096 -cdrom $(ISO_IMAGE)
+	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -hda $(VIRTUAL_DISK)
 
 # Run with QEMU in debug mode
 # enter gdb in wsl
@@ -72,8 +73,9 @@ run: iso
 # target remote :1234
 debug: CFLAGS += -g
 debug: iso
-	$(QEMU) -cdrom $(ISO_IMAGE) -s -S
+	$(QEMU) -cdrom $(ISO_IMAGE) -s -S -hda $(VIRTUAL_DISK)
 
 # Cleanup
 clean:
-	rm -rf $(BUILD_DIR)/*.o $(KERNEL_BIN) $(KERNEL_ELF) $(ISO_IMAGE)
+	rm -rf $(BUILD_DIR)/*.o $(KERNEL_BIN) $(KERNEL_ELF) $(ISO_IMAGE) $(VIRTUAL_DISK)
+	qemu-img create $(VIRTUAL_DISK) 1G 
