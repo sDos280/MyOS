@@ -35,20 +35,9 @@
 #define ATA_SECONDARY_COMMAND_REGISTER       (ATA_SECONDARY_BASE_REGISTER + 7)
 
 #define ATA_IDENTIFY_REQUEST 0xEC
+#define ATA_READ_REQUEST 0x20
 
-typedef struct ata_request_struct{
-    volatile uint8_t pending;  // set if there is a pending request, else clear
-    volatile uint8_t request_type;  // set if there the request have been handled, else clear
-    volatile uint8_t channel;  // the channel used for the current request
-    volatile uint8_t device;  // the device that the communication will be sent to
-} ata_request_t;
-
-typedef struct ata_responce_struct{
-    volatile uint8_t done: 4;  // set if there the request have been handled, else clear 
-    volatile uint8_t was_an_error: 4;  // set if there was an error in the handeling of the request, else clear
-    volatile uint16_t data[256];  // the data of the request
-    volatile char * error_message; // incase of an error, this would be the error message
-} ata_responce_t;
+#define ATA_SECTOR_SIZE 512
 
 typedef struct __attribute__((packed)) identify_device_data_struct {
   struct {
@@ -422,9 +411,51 @@ typedef struct __attribute__((packed)) identify_device_data_struct {
   uint16_t CheckSum : 8;
 } identify_device_data_t;
 
+typedef struct device_id_struct {
+    uint8_t channel;  // the channel used for the current request
+    uint8_t device;  // the device that the communication will be sent to
+} device_id_t;
+
+typedef struct ata_identify_responce_struct {
+    identify_device_data_t device_data; // the device data we get after the identify command
+} ata_identify_responce_t;
+
+typedef struct ata_read_request_struct {
+    uint32_t sector_address; // the sector address
+    uint32_t sector_count; // the sector count
+} ata_read_request_t;
+
+typedef struct ata_read_responce_struct {
+    uint32_t current_secotr_writen; // the current sector that is writen in the current responce (irq)
+    uint8_t * memory; // dynamicly allocated memory of the memory for the device 
+} ata_read_responce_t;
+
+typedef struct ata_request_struct{
+    volatile device_id_t device_id; // the device id the request was sent to
+    volatile uint8_t pending;  // set if there is a pending request, else clear
+    volatile uint8_t request_type;
+    union {
+        volatile ata_read_request_t ata_read_request;
+    } spesific_request;  // a spesific request
+} ata_request_t;
+
+typedef struct ata_responce_struct{
+    volatile device_id_t device_id; // the device id the responce was returned from
+    volatile uint8_t done: 4;  // set if there the request have been handled, else clear 
+    volatile uint8_t was_an_error: 4;  // set if there was an error in the handeling of the request, else clear
+
+    union {
+        volatile ata_identify_responce_t ata_identify_responce;
+        volatile ata_read_responce_t ata_read_responce;
+    } spesific_request;
+
+    volatile char * error_message; // incase of an error, this would be the error message
+} ata_responce_t;
+
 void initiate_ata_driver(); // initiate the ata driver
-ata_responce_t * get_ata_responce_structure();
+ata_responce_t * get_ata_responce_structure();  // get the internal ata responce
 uint8_t ata_send_identify_command(uint8_t channel, uint8_t device);  // send an identify request and parse the input, return 1 on error else 0
+uint8_t ata_send_read_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count);  // send a read request and parse the input, return 1 on error else 0
 void ata_response_handler(registers_t* regs);  // the page fault handler
 
 #endif // ATA_DRIVER_H

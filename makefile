@@ -25,6 +25,7 @@ KERNEL_ELF = $(BUILD_DIR)/mykernel.elf
 KERNEL_BIN = $(BUILD_DIR)/mykernel.bin
 ISO_IMAGE  = $(BUILD_DIR)/mykernel.iso
 VIRTUAL_DISK = $(BUILD_DIR)/vrdisk.img
+EXAMPLE_TEXT_FILE = README
 
 # Default target
 all: $(KERNEL_ELF) $(KERNEL_BIN)
@@ -79,3 +80,4 @@ debug: iso
 clean:
 	rm -rf $(BUILD_DIR)/*.o $(KERNEL_BIN) $(KERNEL_ELF) $(ISO_IMAGE) $(VIRTUAL_DISK)
 	qemu-img create $(VIRTUAL_DISK) 1G 
+	dd if=$(EXAMPLE_TEXT_FILE) of=$(VIRTUAL_DISK) bs=512 seek=2048 conv=notrunc

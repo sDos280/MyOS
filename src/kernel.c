@@ -47,7 +47,9 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     if (ata_send_identify_command(ATA_PRIMARY, ATA_MASTER_DRIVE) == 0) {
         ata_responce_t * last_ata_responce = get_ata_responce_structure();
         a_drive = kalloc(sizeof(identify_device_data_t));
-        memcpy(a_drive, last_ata_responce->data, sizeof(identify_device_data_t));
+        memcpy(a_drive, &last_ata_responce->spesific_request.ata_identify_responce.device_data, sizeof(identify_device_data_t));
+
+        ata_send_read_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1);
     }
 
     kfree(a_drive);
