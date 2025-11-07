@@ -423,6 +423,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA {
 } ATA_IDENTIFY_DEVICE_DATA;
 
 void initiate_ata_driver(); // initiate the ata driver
+ata_responce_t * get_ata_responce_structure();
 uint8_t ata_send_identify_command(uint8_t channel, uint8_t device);  // send an identify request and parse the input, return 1 on error else 0
 void ata_response_handler(registers_t* regs);  // the page fault handler
 

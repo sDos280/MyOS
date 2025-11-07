@@ -29,6 +29,10 @@ void initiate_ata_driver() {
     register_interrupt_handler(47, ata_response_handler);
 }
 
+ata_responce_t * get_ata_responce_structure() {
+    return &ata_responce;
+}
+
 uint8_t ata_send_identify_command(uint8_t channel, uint8_t device) {
     // https://wiki.osdev.org/ATA_PIO_Mode#IDENTIFY_command
 
