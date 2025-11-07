@@ -9,7 +9,7 @@
 
 #define TICKS_TO_END_WAIT 20
 
-static void print_identify_device_data(const ATA_IDENTIFY_DEVICE_DATA* id);
+static void print_identify_device_data(const identify_device_data_t* id);
 
 ata_request_t ata_request;
 ata_responce_t ata_responce;
@@ -78,10 +78,10 @@ uint8_t ata_send_identify_command(uint8_t channel, uint8_t device) {
         return 1;
     }
 
-    if (ata_responce.was_an_error == 0)
-        print_identify_device_data((ATA_IDENTIFY_DEVICE_DATA *)ata_responce.data);  // there was no error
+    if (ata_responce.was_an_error != 0)
+        print_identify_device_data((identify_device_data_t *)ata_responce.data);  // there was no error
     else 
-        printf("Error: %s", ata_responce.error_message);  // there was no error
+        printf("Error: %s", ata_responce.error_message);
     
     return ata_responce.was_an_error;
 }
@@ -137,7 +137,7 @@ void ata_response_handler(registers_t* regs) {
         outb(PIC1_COMMAND, PIC_EOI); // EOI to master
 }
 
-static void print_identify_device_data(const ATA_IDENTIFY_DEVICE_DATA* id) {
+static void print_identify_device_data(const identify_device_data_t* id) {
     printf("=== ATA IDENTIFY DEVICE DATA ===\n");
 
     // --- General information ---

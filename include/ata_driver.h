@@ -50,7 +50,7 @@ typedef struct ata_responce_struct{
     volatile char * error_message; // incase of an error, this would be the error message
 } ata_responce_t;
 
-typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA {
+typedef struct __attribute__((packed)) identify_device_data_struct {
   struct {
     uint16_t Reserved1 : 1;
     uint16_t Retired3 : 1;
@@ -420,7 +420,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA {
   uint16_t ReservedWord236[19];
   uint16_t Signature : 8;
   uint16_t CheckSum : 8;
-} ATA_IDENTIFY_DEVICE_DATA;
+} identify_device_data_t;
 
 void initiate_ata_driver(); // initiate the ata driver
 ata_responce_t * get_ata_responce_structure();

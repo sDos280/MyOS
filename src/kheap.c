@@ -108,6 +108,8 @@ void* kalloc(size_t size){
 }
 
 void kfree(void * user_pointer) {
+    if (user_pointer == NULL) return;
+    
     heap_chunk_t * chunk = (heap_chunk_t *)(user_pointer - sizeof(heap_chunk_t));
 
     // update chunk status

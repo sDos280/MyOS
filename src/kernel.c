@@ -9,10 +9,13 @@
 #include "keyboard_driver.h"
 #include "multiboot_helper.h"
 #include "ata_driver.h"
+#include "utils.h"
 
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
+    identify_device_data_t * a_drive = NULL;
+
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         PANIC("Error: multiboot magic number unknown")
     }
@@ -41,7 +44,13 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     asm volatile ("sti");
 
     initiate_ata_driver();
-    ata_send_identify_command(ATA_PRIMARY, ATA_MASTER_DRIVE);
+    if (ata_send_identify_command(ATA_PRIMARY, ATA_MASTER_DRIVE) == 0) {
+        ata_responce_t * last_ata_responce = get_ata_responce_structure();
+        a_drive = kalloc(sizeof(identify_device_data_t));
+        memcpy(a_drive, last_ata_responce->data, sizeof(identify_device_data_t));
+    }
+
+    kfree(a_drive);
 
     while (1);
 }
