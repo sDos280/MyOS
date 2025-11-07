@@ -95,34 +95,54 @@ void ata_response_handler(registers_t* regs) {
 }
 
 static void print_identify_device_data(const ATA_IDENTIFY_DEVICE_DATA* id) {
-    const uint16_t* w = (const uint16_t*)id;
+    printf("=== ATA IDENTIFY DEVICE DATA ===\n");
 
-    // Word 0: General configuration
-    printf("Device type: %s\n", (w[0] & 0x8000) ? "Not a hard disk" : "ATA Hard Disk");
+    // --- General information ---
+    printf("Device type: %s\n",
+           id->GeneralConfiguration.DeviceType ? "Non-disk device" : "ATA Hard Disk");
+    printf("Fixed device: %s\n",
+           id->GeneralConfiguration.FixedDevice ? "Yes" : "No");
+    printf("Removable media: %s\n",
+           id->GeneralConfiguration.RemovableMedia ? "Yes" : "No");
 
-    // Word 83: LBA48 support
-    printf("LBA48 support: %s\n", (w[83] & (1 << 10)) ? "Yes" : "No");
+    // --- LBA and addressing ---
+    printf("LBA supported: %s\n", id->Capabilities.LbaSupported ? "Yes" : "No");
+    printf("DMA supported: %s\n", id->Capabilities.DmaSupported ? "Yes" : "No");
 
-    // Word 88: UDMA
-    uint8_t udma_supported = w[88] & 0xFF;
-    uint8_t udma_active = (w[88] >> 8) & 0xFF;
+    // --- 28-bit LBA total sectors (words 60–61) ---
+    printf("User addressable sectors (LBA28): %d (%x)\n",
+           id->UserAddressableSectors, id->UserAddressableSectors);
+
+    // --- 48-bit LBA total sectors (words 100–103) ---
+    uint64_t lba48_total =
+        ((uint64_t)id->Max48BitLBA[1] << 32) | id->Max48BitLBA[0];
+    if (lba48_total)
+        printf("User addressable sectors (LBA48): %d (%x)\n",
+               (unsigned long long)lba48_total, (unsigned long long)lba48_total);
+    else
+        printf("User addressable sectors (LBA48): Not supported\n");
+
+    // --- UDMA support and active modes (word 88) ---
     printf("UDMA supported modes: ");
     for (int i = 0; i < 8; i++)
-        if (udma_supported & (1 << i)) printf("%d ", i);
-    printf("\nUDMA active mode: ");
-    for (int i = 0; i < 8; i++)
-        if (udma_active & (1 << i)) printf("%d ", i);
+        if (id->UltraDMASupport & (1 << i))
+            printf("%d ", i);
     printf("\n");
 
-    // Word 93: 80-conductor cable
-    printf("80-conductor cable detected: %s\n", (w[93] & (1 << 11)) ? "Yes" : "No");
+    printf("UDMA active mode: ");
+    for (int i = 0; i < 8; i++)
+        if (id->UltraDMAActive & (1 << i))
+            printf("%d ", i);
+    printf("\n");
 
-    // Words 60–61: total 28-bit LBA sectors
-    uint32_t lba28_total = ((uint32_t)w[61] << 16) | w[60];
-    printf("LBA28 total sectors: %x\n", lba28_total);
+    // --- 80-conductor cable detection (word 93, bit 11) ---
+    printf("80-conductor cable detected: %s\n",
+           (id->HardwareResetResult & (1 << 11)) ? "Yes" : "No");
 
-    // Words 100–103: total 48-bit LBA sectors
-    uint32_t lba48_low = ((uint32_t)w[101] << 16) | w[100];
-    uint32_t lba48_high = ((uint32_t)w[103] << 16) | w[102];
-    printf("LBA48 total sectors (high, low): %x, %x\n", lba48_high, lba48_low);
+    // --- Serial / Model ---
+    //printf("Serial Number: %s\n", id->SerialNumber); those doesn't work well with the current print
+    //printf("Firmware Revision: %s\n", id->FirmwareRevision);
+    //printf("Model Number: %s\n", id->ModelNumber);
+
+    printf("===============================\n");
 }

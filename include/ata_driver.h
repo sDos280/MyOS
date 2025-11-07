@@ -43,7 +43,8 @@ typedef struct ata_request_struct{
     volatile uint16_t data[256];  // the data of the request
 } ata_request_t;
 
-typedef struct _IDENTIFY_DEVICE_DATA {
+
+typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA {
   struct {
     uint16_t Reserved1 : 1;
     uint16_t Retired3 : 1;
