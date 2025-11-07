@@ -37,12 +37,18 @@
 #define ATA_IDENTIFY_REQUEST 0xEC
 
 typedef struct ata_request_struct{
-    volatile uint8_t busy;  // set if there is a pending request, else clear
-    volatile uint8_t done;  // set if there the request have been handled, else clear 
-    volatile uint8_t request_type;  // set if there the request have been handled, else clear 
-    volatile uint16_t data[256];  // the data of the request
+    volatile uint8_t pending;  // set if there is a pending request, else clear
+    volatile uint8_t request_type;  // set if there the request have been handled, else clear
+    volatile uint8_t channel;  // the channel used for the current request
+    volatile uint8_t device;  // the device that the communication will be sent to
 } ata_request_t;
 
+typedef struct ata_responce_struct{
+    volatile uint8_t done: 4;  // set if there the request have been handled, else clear 
+    volatile uint8_t was_an_error: 4;  // set if there was an error in the handeling of the request, else clear
+    volatile uint16_t data[256];  // the data of the request
+    volatile char * error_message; // incase of an error, this would be the error message
+} ata_responce_t;
 
 typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA {
   struct {
@@ -417,8 +423,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA {
 } ATA_IDENTIFY_DEVICE_DATA;
 
 void initiate_ata_driver(); // initiate the ata driver
-ata_request_t * get_ata_request_struct();  // return to the caller a pointer to the internal drive ata request struct
-void ata_send_identify_command(uint8_t channel, uint8_t device);  // send an identify request and parse the input
+uint8_t ata_send_identify_command(uint8_t channel, uint8_t device);  // send an identify request and parse the input, return 1 on error else 0
 void ata_response_handler(registers_t* regs);  // the page fault handler
 
 #endif // ATA_DRIVER_H

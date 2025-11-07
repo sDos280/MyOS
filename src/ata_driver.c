@@ -4,32 +4,41 @@
 #include "utils.h"
 #include "pic.h"
 
+#define ATA_SELECT_DELAY() \
+    do { inb(0x80); inb(0x80); inb(0x80); inb(0x80); } while (0)
+
+#define TICKS_TO_END_WAIT 20
+
 static void print_identify_device_data(const ATA_IDENTIFY_DEVICE_DATA* id);
 
 ata_request_t ata_request;
+ata_responce_t ata_responce;
 
 void initiate_ata_driver() {
-    ata_request.busy = 0;
-    ata_request.done = 0;
+    // reset the ata request and responce structs
+    ata_request.pending = 0;
     ata_request.request_type = 0;
-
-    memset((void *)ata_request.data, 0, sizeof(ata_request.data));
+    ata_request.channel = 0;
+    ata_request.device = 0;
+    ata_responce.done = 0;
+    ata_responce.was_an_error = 0;
+    ata_responce.error_message = NULL;
+    memset((void *)ata_responce.data, 0, sizeof(ata_responce.data));
 
     register_interrupt_handler(46, ata_response_handler);
+    register_interrupt_handler(47, ata_response_handler);
 }
 
-ata_request_t * get_ata_requast_struct() {
-    return &ata_request;
-}
-
-void ata_send_identify_command(uint8_t channel, uint8_t device) {
+uint8_t ata_send_identify_command(uint8_t channel, uint8_t device) {
     // https://wiki.osdev.org/ATA_PIO_Mode#IDENTIFY_command
 
+    // It is important to set the busy before the any call to send the reqeust
+    ata_request.pending = 1;
+    ata_request.request_type = ATA_IDENTIFY_REQUEST;
+    ata_request.channel = channel;
+    ata_request.device = device; // tell that there is a request on the way
+
     if (channel == ATA_PRIMARY) {
-        ata_request.busy = 1; // tell that there is a request on the way 
-
-        ata_request.request_type = ATA_IDENTIFY_REQUEST;
-
         outb(ATA_PRIMARY_DRIVE_HEAD_REGISTER, 0xa0 | (device << 4)); // spesify what driver to use (0xa0 = 0b10100000 this needs to be always on)
         // set Sector count, LBAlo, LBAmid and LBAhigh to 0
         outb(ATA_PRIMARY_SECTOR_COUNT_REGISTER, 0);
@@ -38,37 +47,65 @@ void ata_send_identify_command(uint8_t channel, uint8_t device) {
         outb(ATA_PRIMARY_CYLINDER_HIGH_REGISTER, 0);
         // send IDENTIFY command (0xEC)
         outb(ATA_PRIMARY_COMMAND_REGISTER, 0xEC);
-        
-        
 
-        while (ata_request.done != 1) {
-            asm volatile("hlt"); // wait for the irq to finish working
-        }
-        
-        print_identify_device_data((ATA_IDENTIFY_DEVICE_DATA *)ata_request.data);
-
+    } else {  // secondry channel
+        outb(ATA_SECONDARY_DRIVE_HEAD_REGISTER, 0xa0 | (device << 4)); // spesify what driver to use (0xa0 = 0b10100000 this needs to be always on)
+        // set Sector count, LBAlo, LBAmid and LBAhigh to 0
+        outb(ATA_SECONDARY_SECTOR_COUNT_REGISTER, 0);
+        outb(ATA_SECONDARY_SECTOR_NUMBER_REGISTER, 0);
+        outb(ATA_SECONDARY_CYLINDER_LOW_REGISTER, 0);
+        outb(ATA_SECONDARY_CYLINDER_HIGH_REGISTER, 0);
+        // send IDENTIFY command (0xEC)
+        outb(ATA_SECONDARY_COMMAND_REGISTER, 0xEC);
     }
+
+
+    ATA_SELECT_DELAY();
+    uint32_t ticks = 0;
+
+    while (ata_responce.done != 1) {
+        ticks++;
+        if (ticks == TICKS_TO_END_WAIT) break;
+        asm volatile("hlt"); // wait for the irq to finish working
+    }
+
+    if (ticks == TICKS_TO_END_WAIT) {
+        printf("Error on IDENTIFY channel %x device %x\n", channel, device);
+        return 1;
+    }
+
+    if (ata_responce.was_an_error == 0)
+        print_identify_device_data((ATA_IDENTIFY_DEVICE_DATA *)ata_responce.data);  // there was no error
+    else 
+        printf("Error: %s", ata_responce.error_message);  // there was no error
+    
+    return ata_responce.was_an_error;
 }
 
 void ata_response_handler(registers_t* regs) {
-    if (ata_request.busy != 1) {
+    if (ata_request.pending != 1) {
         printf("Something went wrong, there is no pending ata request\n");
         goto return_and_send_eoi;
     }
+
+    ata_request.pending = 0;  // update the request pending status
 
     if (ata_request.request_type == ATA_IDENTIFY_REQUEST) {
         uint8_t status = inb(ATA_PRIMARY_STATUS_REGISTER);
         uint8_t LBAmid = inb(ATA_PRIMARY_CYLINDER_LOW_REGISTER);
         uint8_t LBAhi  = inb(ATA_PRIMARY_CYLINDER_HIGH_REGISTER);
 
-        if (status != 0) {
-            printf("A driver was found\n");
-        } else {
-            printf("A driver wasn't found\n");
+        if (status == 0) {
+            ata_responce.was_an_error = 1;
+            ata_responce.error_message = "A driver wasn't found\n";
+            
+            goto return_and_send_eoi;
         }
         
         if (LBAmid != 0 || LBAhi != 0) {
-            printf("The driver isn't an ATA one\n");
+            ata_responce.was_an_error = 1;
+            ata_responce.error_message = "The driver isn't an ATA one\n";
+            goto return_and_send_eoi;
         }
 
         do {
@@ -78,18 +115,20 @@ void ata_response_handler(registers_t* regs) {
         
 
         if (status & 0b00000001) {
-            printf("There is a problem in the ata driver, read wasn't available\n");
+            ata_responce.was_an_error = 1;
+            ata_responce.error_message = "There is a problem in the ata driver, read wasn't available\n";
+            goto return_and_send_eoi;
         }
-
+        ata_responce.was_an_error = 0;
         // else status & 0b00001000 is set
         for (uint32_t i = 0; i < 256; i++) {
-            ata_request.data[i] = inw(ATA_PRIMARY_DATA_REGISTER);
+            ata_responce.data[i] = inw(ATA_PRIMARY_DATA_REGISTER);
         }
     }
         
 
     return_and_send_eoi:
-        ata_request.done = 1;
+        ata_responce.done = 1;
         outb(PIC2_COMMAND, PIC_EOI); // EOI to slave
         outb(PIC1_COMMAND, PIC_EOI); // EOI to master
 }
