@@ -225,7 +225,7 @@ void ata_response_handler(registers_t* regs) {
 
     if (ata_request.request_type == ATA_IDENTIFY_REQUEST) {
         ata_responce.was_an_error = ata_handle_identify_responce();
-    } else {
+    } else if (ata_request.request_type == ATA_READ_REQUEST) {
         ata_handle_read_single_sector_responce();
     }
 
@@ -288,27 +288,7 @@ static void print_identify_device_data(const identify_device_data_t* id) {
     printf("===============================\n");
 }
 
-static void print_sector_batch_data(void * sectors, uint32_t sector_count) {
-    const uint32_t *bytes = (const uint32_t *)sectors;
+static void print_sector_batch_data(const void *sectors, uint32_t sector_count) {
     uint32_t size = sector_count * ATA_SECTOR_SIZE;
-    #define HEX_IN_ROW 15
-
-    size_t i = 0;
-    size_t j = 0;
-
-    for (i = 0; i < size / sizeof(uint32_t); i += HEX_IN_ROW) {
-        // Print offset
-        printf("%x:  ", (unsigned int)i * sizeof(uint32_t));
-
-        // Print hex bytes
-        for (j = 0; j < HEX_IN_ROW; j++) {
-            if (i + j < size / sizeof(uint32_t))
-                printf("%x ", bytes[i + j]);
-        }
-
-        printf("\n");
-    }
-    
-
-    
+    print_hexdump(sectors, size);
 }

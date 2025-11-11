@@ -93,32 +93,36 @@ void printf(const char* format, ...) {
             print_char(*format);
         } else {
             format++;
-        
-            if (*format == 'd') {
-                // Fetch the next argument as an integer and print it
-                print_int(va_arg(args, int));
+
+            // --- Parse padding and width ---
+            char pad_char = ' ';
+            int width = 0;
+
+            if (*format == '0') {
+                pad_char = '0';
+                format++;
             }
 
+            // Read numeric width (e.g. "08" -> 8)
+            while (*format >= '0' && *format <= '9') {
+                width = width * 10 + (*format - '0');
+                format++;
+            }
+
+            // --- Handle specifier ---
+            if (*format == 'd') {
+                print_int_padded(va_arg(args, int), width, pad_char);
+            }
+            else if (*format == 'x' || *format == 'p') {
+                print_hex_padded(va_arg(args, uint32_t), width, pad_char);
+            }
             else if (*format == 'c') {
-                // Fetch the next argument as an char and print it
                 print_char(va_arg(args, char));
             }
-
-            else if (*format == 'x') {
-                // Fetch the next argument as an hex and print it
-                print_hex(va_arg(args, uint32_t));
-            }
-
-            else if (*format == 'p') {
-                // Fetch the next argument as an hex and print it
-                print_hex(va_arg(args, uint32_t));
-            }
-
             else if (*format == 's') {
-                // Fetch the next argument as a string and print it
-                print_const_string(va_arg(args, char *));
-            } else {
-                // in case of unknown format spesifier
+                print_const_string(va_arg(args, char*));
+            }
+            else {
                 print_char('%');
                 print_char(*format);
             }
@@ -137,50 +141,86 @@ void print_const_string(const char* str) {
     }
 }
 
-void print_int(uint32_t num){
-    if(num == 0){
-        print_const_string("0");
-        return;
-    }
-
-    char buffer[11]; // Enough to hold all digits of a 32-bit integer
+void print_int_padded(uint32_t num, int width, char pad_char) {
+    char buffer[11];
     int i = 0;
 
-    while(num > 0){
-        buffer[i++] = (num % 10) + '0'; // Convert digit to character
-        num /= 10;
+    if (num == 0) {
+        buffer[i++] = '0';
+    } else {
+        while (num > 0) {
+            buffer[i++] = (num % 10) + '0';
+            num /= 10;
+        }
     }
 
-    // Digits are in reverse order, so print them backwards
-    for(int j = i - 1; j >= 0; j--){
-        char str[2] = {buffer[j], '\0'};
-        print_const_string(str);
+    // Print padding if needed
+    while (i < width) {
+        print_char(pad_char);
+        width--;
+    }
+
+    // Print digits in reverse
+    for (int j = i - 1; j >= 0; j--) {
+        print_char(buffer[j]);
     }
 }
 
-void print_hex(uint32_t num) {
-    print_const_string("0x");
-    if (num == 0) {
-        print_const_string("0");
-        return;
-    }
-
-    char buffer[9]; // Enough to hold all hex digits of a 32-bit integer
+void print_hex_padded(uint32_t num, int width, char pad_char) {
+    char buffer[9];
     int i = 0;
 
-    while (num > 0) {
-        uint32_t digit = num & 0xF; // Get the last hex digit
-        if (digit < 10) {
-            buffer[i++] = digit + '0'; // Convert to character '0'-'9'
-        } else {
-            buffer[i++] = digit - 10 + 'A'; // Convert to character 'A'-'F'
+    if (num == 0) {
+        buffer[i++] = '0';
+    } else {
+        while (num > 0) {
+            uint32_t digit = num & 0xF;
+            buffer[i++] = (digit < 10) ? ('0' + digit) : ('A' + digit - 10);
+            num >>= 4;
         }
-        num >>= 4; // Shift right by 4 bits to process the next hex digit
     }
 
-    // Digits are in reverse order, so print them backwards
+    int num_len = i;
+    while (num_len < width) {
+        print_char(pad_char);
+        width--;
+    }
+
     for (int j = i - 1; j >= 0; j--) {
-        char str[2] = {buffer[j], '\0'};
-        print_const_string(str);
+        print_char(buffer[j]);
+    }
+}
+
+
+void print_hexdump(const void *data, size_t size) {
+    #define BYTES_PER_ROW 16
+    const uint8_t *bytes = (const uint8_t *)data;
+
+    for (size_t offset = 0; offset < size; offset += BYTES_PER_ROW) {
+        // Print offset
+        printf("%08x: ", (unsigned int)offset);
+
+        // Print hex values
+        for (size_t i = 0; i < BYTES_PER_ROW; i++) {
+            if (offset + i < size)
+                printf("%02x ", bytes[offset + i]);
+            else
+                printf("   "); // keep columns aligned if incomplete line
+        }
+
+        printf(" ");
+
+        // Print ASCII representation
+        for (size_t i = 0; i < BYTES_PER_ROW; i++) {
+            if (offset + i < size) {
+                uint8_t c = bytes[offset + i];
+                if (c >= 32 && c < 127) // printable ASCII range
+                    printf("%c", c);
+                else
+                    printf(".");
+            }
+        }
+
+        printf("\n");
     }
 }

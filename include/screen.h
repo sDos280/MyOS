@@ -8,7 +8,8 @@ void clear_screen();
 void print_char(char c);
 void printf(const char* format, ...);
 void print_const_string(const char* str);
-void print_int(uint32_t num);
-void print_hex(uint32_t num);
+void print_int_padded(uint32_t num, int width, char pad_char);
+void print_hex_padded(uint32_t num, int width, char pad_char);
+void print_hexdump(const void *data, size_t size); // print hexdump of something
 
 #endif // SCREEN_H

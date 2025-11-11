@@ -17,6 +17,10 @@
         "type_traits": "cpp",
         "stdarg.h": "c",
         "multiboot_helper.h": "c",
-        "ata_driver.h": "c"
+        "ata_driver.h": "c",
+        "limits.h": "c",
+        "stdbool.h": "c",
+        "cstdint": "c",
+        "printf.h": "c"
     }
 }

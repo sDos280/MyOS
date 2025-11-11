@@ -27,11 +27,7 @@ void static print_page_directory(page_directory_t* dir) {
         page_table_t* table = dir->tables[pd_idx];
         if (!table) continue; // skip empty tables
 
-        print_const_string("PD Entry ");
-        print_int(pd_idx);
-        print_const_string(": Table at ");
-        print_hex((uint32_t)table);
-        print_const_string("\n");
+        printf("PD Entry %d: Table at %x\n", pd_idx, (uint32_t)table);
 
         // Print table header
         print_const_string("  PT Index | Present | R/W | User | Frame\n");
@@ -42,25 +38,19 @@ void static print_page_directory(page_directory_t* dir) {
 
             if (!entry->present) continue; // skip not-present pages
 
-            print_const_string("  ");
-            print_int(pt_idx);
-            print_const_string("        | ");
+            printf("  %d        | ", pt_idx);
 
             // Present
-            print_int(entry->present);
-            print_const_string("       | ");
+            printf("%d       | ", entry->present);
 
             // R/W
-            print_int(entry->rw);
-            print_const_string("   | ");
+            printf("%d   | ", entry->rw);
 
             // User
-            print_int(entry->user);
-            print_const_string("    | ");
+            printf("%d    | ", entry->user);
 
             // Frame
-            print_hex(entry->frame);
-            print_const_string("\n");
+            printf("%x\n", entry->frame);
         }
 
         print_const_string("\n");

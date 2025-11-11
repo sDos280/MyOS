@@ -50,8 +50,9 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
         memcpy(a_drive, &last_ata_responce->spesific_request.ata_identify_responce.device_data, sizeof(identify_device_data_t));
 
         ata_send_read_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1);
+        kfree(last_ata_responce->spesific_request.ata_read_responce.memory);
     }
-
+    
     kfree(a_drive);
 
     while (1);
