@@ -14,15 +14,16 @@
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
-    identify_device_data_t * a_drive = NULL;
-
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         PANIC("Error: multiboot magic number unknown")
     }
-    
+
+    identify_device_data_t * a_drive = NULL;
+    screen_handler_t screen_handler;    
     initialize_gdt();
 
-    initialize_screen();  // initialize the screen
+    assign_screen_handler(&screen_handler);
+    initialize_screen_handler();
     
     clear_screen();
     printf("Hello, Kernel World!\n");
@@ -55,5 +56,12 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     
     kfree(a_drive);
 
-    while (1);
+    uint32_t i = 0;
+    while (1) {
+        if (i < 1000) {
+
+        
+        printf("%d\n", i);
+        i++;}
+    }
 }

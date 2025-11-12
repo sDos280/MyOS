@@ -21,6 +21,7 @@
         "limits.h": "c",
         "stdbool.h": "c",
         "cstdint": "c",
-        "printf.h": "c"
+        "printf.h": "c",
+        "arg.h": "c"
     }
 }

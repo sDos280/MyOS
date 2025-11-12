@@ -3,80 +3,125 @@
 #include "utils.h"
 #include "arg.h"
 
-#define SCREEN_COLUMNS 80
-#define SCREEN_ROWS 25
-#define ROW_FACTOR 4
-#define SCREEN_BUFFER_COLUMNS 80
-#define SCREEN_BUFFER_ROWS (SCREEN_ROWS * ROW_FACTOR)
 
-
-volatile char *video = (volatile char*)0xB8000;
-static uint32_t screen_start_row;
-// Note: the [row, column] is index that is next to be writen
-static uint32_t row = 0;
-static uint32_t column = 0;
-
-char screen_buffer[SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS * 2];
-
-void initialize_screen() {
-    clear_screen();
-}
+static volatile char *video = (volatile char*)0xB8000;
+static screen_handler_t * screen_handler;
 
 static void blip_to_screen() {
     for (uint32_t y = 0; y < SCREEN_ROWS; y++) {
         for (uint32_t x = 0; x < SCREEN_COLUMNS; x++) {
             video[(y * SCREEN_COLUMNS + x) * 2] = 
-                screen_buffer[(((y + screen_start_row) % SCREEN_BUFFER_ROWS) * SCREEN_BUFFER_COLUMNS + x) * 2];
+                screen_handler->screen_buffer[(((y + screen_handler->screen_start_row) % SCREEN_BUFFER_ROWS) * SCREEN_BUFFER_COLUMNS + x) * 2];
             video[(y * SCREEN_COLUMNS + x) * 2 + 1] = 
-                screen_buffer[(((y + screen_start_row) % SCREEN_BUFFER_ROWS) * SCREEN_BUFFER_COLUMNS + x) * 2 + 1];
+                screen_handler->screen_buffer[(((y + screen_handler->screen_start_row) % SCREEN_BUFFER_ROWS) * SCREEN_BUFFER_COLUMNS + x) * 2 + 1];
         }
+    }
+}
+
+void assign_screen_handler(screen_handler_t * handler) {
+    screen_handler = handler;
+}
+
+void initialize_screen_handler() {
+    clear_screen();
+}
+
+static clear_row_of_buffer(char * buffer, uint32_t row) {
+    for (uint32_t c = 0; c < SCREEN_BUFFER_COLUMNS; c++) {
+        screen_handler->screen_buffer[(row * SCREEN_BUFFER_COLUMNS + c) * 2] = 0;
+        screen_handler->screen_buffer[(row * SCREEN_BUFFER_COLUMNS + c) * 2 + 1] = 0x07; // Light grey on black background
     }
 }
 
 void clear_screen() {
     // reset screen and buffer parameters
-    row = 0;
-    column = 0;
-    screen_start_row = 0;
+    screen_handler->row = 0;
+    screen_handler->column = 0;
+    screen_handler->screen_start_row = 0;
 
     for (uint32_t r = 0; r < SCREEN_BUFFER_ROWS; r++) {
-        for (uint32_t c = 0; c < SCREEN_BUFFER_COLUMNS; c++) {
-            screen_buffer[(r * SCREEN_BUFFER_COLUMNS + c) * 2] = 0;
-            screen_buffer[(r * SCREEN_BUFFER_COLUMNS + c) * 2 + 1] = 0x07; // Light grey on black background
-        }
+        clear_row_of_buffer(screen_handler->screen_buffer, r);
     }
 
     blip_to_screen();
 }
 
-void print_char(char c) {
-    // write and update the buffer
-    // uint8_t is_write_over_screen;
+static uint8_t print_char_to_screen_buffer(char c) {
+    // return 1 if the is there is need to blit to the screen after the call else 1
+    uint8_t return_num = 0;
 
     if (c == '\n') {
-        column = 0;
-        row++;
+        screen_handler->column = 0;
+        screen_handler->row++;
     } else {
-        screen_buffer[(row  * SCREEN_BUFFER_COLUMNS + column) * 2] = c;
-        screen_buffer[(row  * SCREEN_BUFFER_COLUMNS + column) * 2 + 1] = 0x07; // Light grey on black background
+        screen_handler->screen_buffer[(screen_handler->row  * SCREEN_BUFFER_COLUMNS + screen_handler->column) * 2] = c;
+        screen_handler->screen_buffer[(screen_handler->row  * SCREEN_BUFFER_COLUMNS + screen_handler->column) * 2 + 1] = 0x07; // Light grey on black background
 
-        column++;
+        screen_handler->column++;
     }
     
-    if (column >= SCREEN_BUFFER_COLUMNS) {
-        column = 0;
-        row++;
+    if (screen_handler->column >= SCREEN_BUFFER_COLUMNS) {
+        screen_handler->column = 0;
+        screen_handler->row++;
     }
 
-    if (row >= SCREEN_BUFFER_ROWS) 
-        clear_screen();
+    if (screen_handler->row >= SCREEN_BUFFER_ROWS) 
+    {
+        screen_handler->row = 0;
+        clear_row_of_buffer(screen_handler->screen_buffer, 0); // clear the first row so the next write will have 
+        return_num = 1;
+    }
     
     // check if next write will be over the screen
-    if ((row - screen_start_row) % SCREEN_BUFFER_ROWS >= SCREEN_ROWS) {
-        screen_start_row = (screen_start_row + 1) % SCREEN_BUFFER_ROWS;
+    if ((screen_handler->row - screen_handler->screen_start_row) % SCREEN_BUFFER_ROWS >= SCREEN_ROWS) {
+        screen_handler->screen_start_row = (screen_handler->screen_start_row + 1) % SCREEN_BUFFER_ROWS;
+        return_num = 1;
     }
 
-    blip_to_screen();
+    return return_num;
+}
+
+void print_char(char c) {
+    uint32_t relative_row = (screen_handler->row - screen_handler->screen_start_row) % SCREEN_BUFFER_ROWS;
+    uint32_t should_print_to_screen = (relative_row < SCREEN_ROWS);
+
+    // return 1 if the is there is need to blit to the screen after the call else 1
+    uint8_t return_num = 0;
+
+    if (c == '\n') {
+        screen_handler->column = 0;
+        screen_handler->row++;
+    } else {
+        screen_handler->screen_buffer[(screen_handler->row  * SCREEN_BUFFER_COLUMNS + screen_handler->column) * 2] = c;
+        screen_handler->screen_buffer[(screen_handler->row  * SCREEN_BUFFER_COLUMNS + screen_handler->column) * 2 + 1] = 0x07; // Light grey on black background
+
+        if (should_print_to_screen) {
+            video[(relative_row * SCREEN_COLUMNS + screen_handler->column) * 2] = c;
+            video[(relative_row * SCREEN_COLUMNS + screen_handler->column) * 2 + 1] = 0x07; // Light grey on black background
+        }
+
+        screen_handler->column++;
+    }
+    
+    if (screen_handler->column >= SCREEN_BUFFER_COLUMNS) {
+        screen_handler->column = 0;
+        screen_handler->row++;
+    }
+
+    if (screen_handler->row >= SCREEN_BUFFER_ROWS) 
+    {
+        screen_handler->row = 0;
+        clear_row_of_buffer(screen_handler->screen_buffer, 0); // clear the first row so the next write will have 
+        should_print_to_screen = 1;
+    }
+    
+    // check if next write will be over the screen
+    if ((screen_handler->row - screen_handler->screen_start_row) % SCREEN_BUFFER_ROWS >= SCREEN_ROWS) {
+        screen_handler->screen_start_row = (screen_handler->screen_start_row + 1) % SCREEN_BUFFER_ROWS;
+        should_print_to_screen = 1;
+    }
+
+    if (should_print_to_screen == 1) blip_to_screen();
 }
 
 void printf(const char* format, ...) {

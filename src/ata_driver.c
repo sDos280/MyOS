@@ -288,7 +288,7 @@ static void print_identify_device_data(const identify_device_data_t* id) {
     printf("===============================\n");
 }
 
-static void print_sector_batch_data(const void *sectors, uint32_t sector_count) {
+static void print_sector_batch_data(void *sectors, uint32_t sector_count) {
     uint32_t size = sector_count * ATA_SECTOR_SIZE;
     print_hexdump(sectors, size);
 }
