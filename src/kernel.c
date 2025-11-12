@@ -57,11 +57,5 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     kfree(a_drive);
 
     uint32_t i = 0;
-    while (1) {
-        if (i < 1000) {
-
-        
-        printf("%d\n", i);
-        i++;}
-    }
+    while (1);
 }
