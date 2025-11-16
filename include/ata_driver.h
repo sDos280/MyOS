@@ -36,6 +36,7 @@
 
 #define ATA_IDENTIFY_REQUEST 0xEC
 #define ATA_READ_REQUEST 0x20
+#define ATA_WRITE_REQUEST 0x30
 
 #define ATA_SECTOR_SIZE 512
 
@@ -430,12 +431,25 @@ typedef struct ata_read_responce_struct {
     uint8_t * memory; // dynamicly allocated memory of the memory for the device 
 } ata_read_responce_t;
 
+typedef struct ata_write_request_struct {
+    // a write sectors request
+    uint32_t sector_address; // the first sector address to write
+    size_t sector_count; // the sector count to be writen
+    void * data; // the data that wanted to be passed to the driver, 
+    // the size of data should be sector_count * ATA_SECTOR_SIZE  
+} ata_write_request_t;
+
+typedef struct ata_write_responce_struct {
+    uint8_t was_currect_sector_write_done; // 1 if the driver sent an interrupt that he have finish writing to the disk, else 1
+} ata_write_responce_t;
+
 typedef struct ata_request_struct{
     volatile device_id_t device_id; // the device id the request was sent to
     volatile uint8_t pending;  // set if there is a pending request, else clear
     volatile uint8_t request_type;
     union {
         volatile ata_read_request_t ata_read_request;
+        volatile ata_write_request_t ata_write_request;
     } spesific_request;  // a spesific request
 } ata_request_t;
 
@@ -447,6 +461,7 @@ typedef struct ata_responce_struct{
     union {
         volatile ata_identify_responce_t ata_identify_responce;
         volatile ata_read_responce_t ata_read_responce;
+        volatile ata_write_responce_t ata_write_responce;
     } spesific_request;
 
     volatile char * error_message; // incase of an error, this would be the error message
@@ -456,6 +471,7 @@ void initiate_ata_driver(); // initiate the ata driver
 ata_responce_t * get_ata_responce_structure();  // get the internal ata responce
 uint8_t ata_send_identify_command(uint8_t channel, uint8_t device);  // send an identify request and parse the input, return 1 on error else 0
 uint8_t ata_send_read_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count);  // send a read request and parse the input, return 1 on error else 0
+uint8_t ata_send_write_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count, void * data); // send a write reuest
 void ata_response_handler(registers_t* regs);  // the page fault handler
 
 #endif // ATA_DRIVER_H

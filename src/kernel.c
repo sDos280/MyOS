@@ -11,6 +11,27 @@
 #include "ata_driver.h"
 #include "utils.h"
 
+char story[512] =
+        "The old lighthouse keeper, Elias, polished the great lens as a storm "
+        "raged outside. For forty years, the beam had cut through the fog and "
+        "rain, a reliable sentinel on the jagged coast. Tonight, the wind "
+        "howled with unusual fury, shaking the very foundation of the stone "
+        "tower. A young apprentice, Sarah, watched him, her hands clenched "
+        "tightly. 'Will it hold, Elias?' she shouted over the gale. He nodded, "
+        "a calm smile beneath his grizzled beard. 'It always has.' A sudden "
+        "crack of thunder shook the ground. Outside, the sea crashed against "
+        "the cliffs, hungry and dark. The light flickered, a brief heart "
+        "tremor, before steadying. Inside, a sense of duty stronger than the "
+        "storm prevailed. The light was their promise to the distant ships, "
+        "unbroken and eternal. Sarah finally relaxed, understanding the quiet "
+        "strength of the man beside her. The night wore on, a battle of "
+        "elements against a stubborn beacon of hope. By dawn, the storm had "
+        "passed, leaving a crisp, clear sky and a calm sea. Elias wiped a "
+        "final speck of salt spray from the glass, satisfied. The beacon "
+        "remained a silent testament to endurance. The cycle would continue, "
+        "one generation teaching the next the simple, vital truth: some things "
+        "must never fail. The sea always respected that resolve in the end.";
+
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
@@ -50,6 +71,11 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
         a_drive = kalloc(sizeof(identify_device_data_t));
         memcpy(a_drive, &last_ata_responce->spesific_request.ata_identify_responce.device_data, sizeof(identify_device_data_t));
 
+        ata_send_read_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1);
+        kfree(last_ata_responce->spesific_request.ata_read_responce.memory);
+
+        ata_send_write_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1, story);
+        
         ata_send_read_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1);
         kfree(last_ata_responce->spesific_request.ata_read_responce.memory);
     }
