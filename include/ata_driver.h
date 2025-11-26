@@ -428,13 +428,57 @@ typedef struct __attribute__((packed)) identify_device_data_struct {
   uint16_t CheckSum : 8;
 } identify_device_data_t;
 
-void ata_wait_bsy(uint16_t io);
-void ata_wait_drq(uint16_t io);
-void initiate_ata_driver(); // initiate the ata driver
-uint8_t ata_read28_request(ata_drive_t* drive, uint32_t sector_address, uint8_t sector_count, uint8_t* buffer);  // ata read28 request, buffer would be 
-uint8_t ata_write28_request(ata_drive_t* drive, uint32_t sector_address, uint8_t sector_count, uint8_t* buffer);  // ata write28 request, buffer would be 
-uint8_t ata_identify_request(ata_drive_t* drive, identify_device_data_t * id_data);  // send an identify request and parse the input, return 1 on error else 0
 
-void print_identify_device_data(const identify_device_data_t* id);
+/**
+ * Waits until BSY (busy) flag is cleared for the given drive.
+ */
+void ata_wait_bsy(ata_drive_t *drive);
+
+/**
+ * Waits until DRQ (data ready) flag is set for the given drive.
+ */
+void ata_wait_drq(ata_drive_t *drive);
+
+/**
+ * Registers ATA IRQ handlers and clears driver state.
+ */
+void initiate_ata_driver();
+
+/**
+ * Reads sectors from an ATA drive using 28-bit LBA PIO.
+ * @buffer must be at least sector_count * 512 bytes.
+ *
+ * Returns: 1 if error occurred, 0 on success.
+ */
+uint8_t ata_read28_request(ata_drive_t *drive,
+                          uint32_t sector_address,
+                          uint8_t sector_count,
+                          uint8_t *buffer);
+
+/**
+ * Writes sectors to an ATA drive using 28-bit LBA PIO.
+ * The command will generate IRQ after each sector is written.
+ * @buffer must contain sector_count * 512 bytes.
+ *
+ * Returns: 1 on error, 0 on success.
+ */
+uint8_t ata_write28_request(ata_drive_t *drive,
+                           uint32_t sector_address,
+                           uint8_t sector_count,
+                           uint8_t *buffer);
+
+/**
+ * Sends IDENTIFY command to a drive and stores parsed result.
+ * Identifies if a drive exists and reads its identify block.
+ *
+ * Returns: 1 if error or drive missing, 0 if identify succeeded.
+ */
+uint8_t ata_send_identify_command(ata_drive_t *drive, 
+                                  identify_device_data_t *buffer);
+
+/**
+ * Prints decoded identify information for debugging/display.
+ */
+void print_identify_device_data(const identify_device_data_t *id);
 
 #endif // ATA_DRIVER_H

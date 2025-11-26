@@ -120,7 +120,7 @@ void printf(const char* format, ...) {
             }
 
             // --- Handle specifier ---
-            if (*format == 'd') {
+            if (*format == 'd' || *format == 'u') {
                 print_int_padded(va_arg(args, int), width, pad_char);
             }
             else if (*format == 'x' || *format == 'p') {

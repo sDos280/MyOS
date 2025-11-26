@@ -39,7 +39,6 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
         PANIC("Error: multiboot magic number unknown")
     }
 
-    identify_device_data_t * a_drive = NULL;
     screen_handler_t screen_handler;    
     initialize_gdt();
 
@@ -65,23 +64,20 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     // enable interrupts
     asm volatile ("sti");
 
-    initiate_ata_driver();
-    if (ata_send_identify_command(ATA_PRIMARY, ATA_MASTER_DRIVE) == 0) {
-        ata_responce_t * last_ata_responce = get_ata_responce_structure();
-        a_drive = kalloc(sizeof(identify_device_data_t));
-        memcpy(a_drive, &last_ata_responce->spesific_request.ata_identify_responce.device_data, sizeof(identify_device_data_t));
+    initiate_ata_driver();  // initiate the driver
 
-        ata_send_read_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1);
-        kfree(last_ata_responce->spesific_request.ata_read_responce.memory);
+    ata_drive_t drive_a;
+    drive_a.device_id.io_base = ATA_PRIMARY_IO;
+    drive_a.device_id.ctrl_base = ATA_PRIMARY_CTRL;
+    drive_a.exists = 0;
+    drive_a.size_in_sectors = 0;
 
-        ata_send_write_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1, story);
-        
-        ata_send_read_command(ATA_PRIMARY, ATA_MASTER_DRIVE, 2048, 1);
-        kfree(last_ata_responce->spesific_request.ata_read_responce.memory);
-    }
+    identify_device_data_t drive_a_identify;
+    memset(&drive_a_identify, 0, sizeof(identify_device_data_t));
+
     
-    kfree(a_drive);
-
-    uint32_t i = 0;
+    if (ata_send_identify_command(&drive_a, &drive_a_identify) == 0) {
+        print_identify_device_data(&drive_a_identify);
+    }
     while (1);
 }
