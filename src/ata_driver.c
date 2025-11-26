@@ -5,17 +5,66 @@
 #include "pic.h"
 #include "kheap.h"
 
-#define ATA_SELECT_DELAY() \
-    do { inb(0x80); inb(0x80); inb(0x80); inb(0x80); } while (0)
+#define ATA_SELECT_DELAY()                    \
+    do {                                      \
+        inb(ATA_PRIMARY_IO + ATA_REG_STATUS); \
+        inb(ATA_PRIMARY_IO + ATA_REG_STATUS); \
+        inb(ATA_PRIMARY_IO + ATA_REG_STATUS); \
+        inb(ATA_PRIMARY_IO + ATA_REG_STATUS); \
+    } while (0)
 
-#define TICKS_TO_END_WAIT 100
+#define WAIT_FOR_ATA_RESPONCE_TO_BE_DONE()               \
+    /* wait for the irq to finish working */             \
+    while (!ata_responce.done) {                         \
+        asm volatile("hlt");                             \
+    }
 
-static void print_identify_device_data(const identify_device_data_t* id);
-static void print_sector_batch_data(void * sectors, uint32_t sector_count);
+typedef struct ata_request_struct{
+    volatile device_id_t device_id; // the device id the request was sent to
+    volatile uint8_t pending; // set if there is a pending request, else clear
+    volatile uint8_t request_type;
+    union {
+        volatile struct {
+            uint32_t sector_address; // the sector address
+            uint32_t sector_count; // the sector count
+        } ata_read_request;
+        volatile struct {
+            uint32_t sector_address; // the first sector address to write
+            size_t sector_count; // the sector count to be writen
+            void * data; // the data that wanted to be passed to the driver (len(data) = sector_count * ATA_SECTOR_SIZE)
+        } ata_write_request;
+    } spesific_request;  // a spesific request
+} ata_request_t;
+
+typedef struct ata_responce_struct{
+    volatile device_id_t device_id; // the device id the responce was returned from
+    volatile uint8_t done: 4;  // 1 if there the request have been handled, else 0 
+    volatile uint8_t was_an_error: 4;  // 1 if there was an error in the handeling of the request, else 0
+    union {
+        volatile struct {
+            uint32_t current_secotr_writen; // the current sector that is writen in the current responce (irq)
+            uint8_t * memory; // the end memory address of the data from the device 
+        } ata_read_responce;
+        volatile struct {
+            uint8_t was_currect_sector_write_done; // 1 if the driver sent an interrupt that he have finish writing to the disk, else 1
+        } ata_write_responce;
+    } spesific_request;
+} ata_responce_t;
+
+static uint8_t ata_handle_identify_responce();
 static uint8_t ata_handle_read_single_sector_responce();
+static uint8_t ata_handle_write_single_sector_responce();
 
 ata_request_t ata_request;
 ata_responce_t ata_responce;
+
+void ata_wait_bsy(ata_drive_t* drv) {
+    while (inb(drv->device_id.ctrl_base) & ATA_SR_BSY) asm volatile("hlt");
+}
+
+void ata_wait_drq(ata_drive_t* drv) {
+    while (!(inb(drv->device_id.ctrl_base) & ATA_SR_DRQ)) asm volatile("hlt");
+}
 
 void initiate_ata_driver() {
     // reset the ata request and responce structs
@@ -26,191 +75,51 @@ void initiate_ata_driver() {
     register_interrupt_handler(47, ata_response_handler);
 }
 
-ata_responce_t * get_ata_responce_structure() {
-    return &ata_responce;
-}
-
 static uint8_t ata_handle_identify_responce() {
-    uint8_t status = 0;
-    uint8_t LBAmid = 0;
-    uint8_t LBAhi = 0;
+    uint8_t status = inb(ata_responce.device_id.io_base + ATA_REG_STATUS);
+    uint8_t LBAmid = inb(ata_responce.device_id.io_base + ATA_REG_LBA_MID);
+    uint8_t LBAhi = inb(ata_responce.device_id.io_base + ATA_REG_LBA_HIGH);
     uint8_t error = 0;
-
-    if (ata_responce.device_id.channel == ATA_PRIMARY) {
-        status = inb(ATA_PRIMARY_STATUS_REGISTER);
-        LBAmid = inb(ATA_PRIMARY_CYLINDER_LOW_REGISTER);
-        LBAhi  = inb(ATA_PRIMARY_CYLINDER_HIGH_REGISTER);
-    } else { // Secondary channel
-        status = inb(ATA_SECONDARY_STATUS_REGISTER);
-        LBAmid = inb(ATA_SECONDARY_CYLINDER_LOW_REGISTER);
-        LBAhi  = inb(ATA_SECONDARY_CYLINDER_HIGH_REGISTER);
-    }
 
     if (status == 0) {
         error = 1;
-        ata_responce.error_message = "A driver wasn't found\n";
+        printf("ATA: %s - %s : A driver wasn't found\n", (ata_responce.device_id.io_base == ATA_PRIMARY_IO)? "Primary" : "Secondary", (ata_responce.device_id.master == 1)? "Master" : "Slave");
         goto _return;
     }
         
     if (LBAmid != 0 || LBAhi != 0) {
         error = 1;
-        ata_responce.error_message = "The driver isn't an ATA one\n";
+        printf("ATA: %s - %s : The driver isn't an ATA one\n", (ata_responce.device_id.io_base == ATA_PRIMARY_IO)? "Primary" : "Secondary", (ata_responce.device_id.master == 1)? "Master" : "Slave");
         goto _return;
     }
 
     do {
-        if (ata_responce.device_id.channel == ATA_PRIMARY) 
-            status = inb(ATA_PRIMARY_STATUS_REGISTER); 
-        else  // Secondary channel
-            status = inb(ATA_SECONDARY_STATUS_REGISTER);
-    } while (!((status & 0b00001000) || (status & 0b00000001))); // white until ata is ready for a read or there is an error
+        status = inb(ata_responce.device_id.io_base + ATA_REG_STATUS);
+    } while (!(status & ATA_SR_DRQ & ATA_SR_ERR)); // white until ata is ready for a read or there is an error
 
-    if (status & 0b00000001) {
+    if (status & ATA_SR_ERR) {
         error = 1;
-        ata_responce.error_message = "There is a problem in the ata driver, read wasn't available\n";
+        printf("ATA: %s - %s : There is a problem in the ata driver, read wasn't available\n", (ata_responce.device_id.io_base == ATA_PRIMARY_IO)? "Primary" : "Secondary", (ata_responce.device_id.master == 1)? "Master" : "Slave");
         goto _return;
     }
 
-    // else status & 0b00001000 is set
-    if (ata_responce.device_id.channel == ATA_PRIMARY)
-        for (uint32_t i = 0; i < 256; i++)
-            ((uint16_t *)&ata_responce.spesific_request.ata_identify_responce.device_data)[i] = inw(ATA_PRIMARY_DATA_REGISTER);
-    else
-        for (uint32_t i = 0; i < 256; i++) 
-            ((uint16_t *)&ata_responce.spesific_request.ata_identify_responce.device_data)[i] = inw(ATA_SECONDARY_DATA_REGISTER);
+    // else status & ATA_SR_DRQ is set
+    for (uint32_t i = 0; i < 256; i++)
+        ((uint16_t *)&ata_responce.spesific_request.ata_read_responce.memory)[i] = inw(ata_responce.device_id.io_base + ATA_REG_DATA);
 
     _return:
         return error;
 }
 
-uint8_t ata_send_identify_command(uint8_t channel, uint8_t device) {
-    // https://wiki.osdev.org/ATA_PIO_Mode#IDENTIFY_command
-
-    // It is important to set the busy before the any call to send the reqeust
-    ata_request.pending = 1; // tell that there is a request on the way
-    ata_request.request_type = ATA_IDENTIFY_REQUEST;
-    ata_request.device_id.channel = channel;
-    ata_request.device_id.device = device;
-    
-    // make sure the responce struct is ready
-    ata_responce.device_id.channel = channel;
-    ata_responce.device_id.device = device;
-    ata_responce.done = 0;
-    ata_responce.error_message = NULL;
-
-    if (channel == ATA_PRIMARY) {
-        outb(ATA_PRIMARY_DRIVE_HEAD_REGISTER, 0xa0 | (device << 4)); // spesify what device to use (0xa0 = 0b10100000 this needs to be always on)
-        // set Sector count, LBAlo, LBAmid and LBAhigh to 0
-        outb(ATA_PRIMARY_SECTOR_COUNT_REGISTER, 0);
-        outb(ATA_PRIMARY_SECTOR_NUMBER_REGISTER, 0);
-        outb(ATA_PRIMARY_CYLINDER_LOW_REGISTER, 0);
-        outb(ATA_PRIMARY_CYLINDER_HIGH_REGISTER, 0);
-        // send IDENTIFY command (0xEC)
-        outb(ATA_PRIMARY_COMMAND_REGISTER, 0xEC);
-
-    } else {  // secondry channel
-        outb(ATA_SECONDARY_DRIVE_HEAD_REGISTER, 0xa0 | (device << 4)); // spesify what device to use (0xa0 = 0b10100000 this needs to be always on)
-        // set Sector count, LBAlo, LBAmid and LBAhigh to 0
-        outb(ATA_SECONDARY_SECTOR_COUNT_REGISTER, 0);
-        outb(ATA_SECONDARY_SECTOR_NUMBER_REGISTER, 0);
-        outb(ATA_SECONDARY_CYLINDER_LOW_REGISTER, 0);
-        outb(ATA_SECONDARY_CYLINDER_HIGH_REGISTER, 0);
-        // send IDENTIFY command (0xEC)
-        outb(ATA_SECONDARY_COMMAND_REGISTER, 0xEC);
-    }
-
-
-    ATA_SELECT_DELAY();
-    uint32_t ticks = 0;
-
-    while (ata_responce.done != 1) {
-        ticks++;
-        if (ticks == TICKS_TO_END_WAIT) break;
-        asm volatile("hlt"); // wait for the irq to finish working
-    }
-
-    if (ticks == TICKS_TO_END_WAIT) {
-        printf("Error on IDENTIFY channel %x device %x\n", channel, device);
-        return 1;
-    }
-
-    if (ata_responce.was_an_error == 0)
-        print_identify_device_data(&ata_responce.spesific_request.ata_identify_responce.device_data);  // there was no error
-    else 
-        printf("Error: %s", ata_responce.error_message);
-    
-    return ata_responce.was_an_error;
-}
-
 static uint8_t ata_handle_read_single_sector_responce() {
     uint32_t memory_start = (ATA_SECTOR_SIZE / 2) * ata_responce.spesific_request.ata_read_responce.current_secotr_writen;
 
-    uint16_t what_register_to_use = (ata_responce.device_id.channel == ATA_PRIMARY)? ATA_PRIMARY_DATA_REGISTER : ATA_SECONDARY_DATA_REGISTER;
-
     for (uint32_t i = 0; i < ATA_SECTOR_SIZE / 2; i++)
-            ((uint16_t *)ata_responce.spesific_request.ata_read_responce.memory)[memory_start + i] = inw(what_register_to_use);
+        ((uint16_t *)ata_responce.spesific_request.ata_read_responce.memory)[memory_start + i] = inw(ata_responce.device_id.io_base + ATA_REG_DATA);
     
     ata_responce.spesific_request.ata_read_responce.current_secotr_writen++; // increment the current sector to be writen
 
     return 0;
-}
-
-uint8_t ata_send_read_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count) {
-    // https://wiki.osdev.org/ATA_PIO_Mode#28_bit_PIO
-
-    // It is important to set the busy before the any call to send the reqeust
-    ata_request.pending = 1; // tell that there is a request on the way
-    ata_request.request_type = ATA_READ_REQUEST;
-    ata_request.device_id.channel = channel;
-    ata_request.spesific_request.ata_read_request.sector_address = sector_address; 
-    ata_request.spesific_request.ata_read_request.sector_count = sector_count;
-
-    // make sure the responce struct is ready
-    ata_responce.device_id.channel = channel;
-    ata_responce.device_id.device = device;
-    ata_responce.done = 0;
-    ata_responce.error_message = NULL;
-    ata_responce.spesific_request.ata_read_responce.current_secotr_writen = 0;
-    ata_responce.spesific_request.ata_read_responce.memory = kalloc(ATA_SECTOR_SIZE * sector_count);
-
-    if (channel == ATA_PRIMARY) {
-        outb(ATA_PRIMARY_DRIVE_HEAD_REGISTER, 0xe0 | (device << 4) | ((sector_address >> 24) & 0x0F)); // spesify what device to use (0xe0 = 0b11100000 this needs to be always on)
-        outb(ATA_PRIMARY_FEATURES_REGISTER, 0);  // send Null (0) to the feature register (don't know why)
-        outb(ATA_PRIMARY_SECTOR_COUNT_REGISTER, sector_count);
-        outb(ATA_PRIMARY_SECTOR_NUMBER_REGISTER, (uint8_t)(sector_address & 0xFF));
-        outb(ATA_PRIMARY_CYLINDER_LOW_REGISTER, (uint8_t)((sector_address >> 8) & 0xFF));
-        outb(ATA_PRIMARY_CYLINDER_HIGH_REGISTER, (uint8_t)((sector_address >> 16) & 0xFF));
-        outb(ATA_PRIMARY_COMMAND_REGISTER, ATA_READ_REQUEST);
-    } else {  // Secondry channel
-        outb(ATA_SECONDARY_DRIVE_HEAD_REGISTER, 0xe0 | (device << 4) | ((sector_address >> 24) & 0x0F)); // spesify what device to use (0xe0 = 0b11100000 this needs to be always on)
-        outb(ATA_SECONDARY_FEATURES_REGISTER, 0);  // send Null (0) to the feature register (don't know why)
-        outb(ATA_SECONDARY_SECTOR_COUNT_REGISTER, sector_count);
-        outb(ATA_SECONDARY_SECTOR_NUMBER_REGISTER, (uint8_t)(sector_address & 0xFF));
-        outb(ATA_SECONDARY_CYLINDER_LOW_REGISTER, (uint8_t)((sector_address >> 8) & 0xFF));
-        outb(ATA_SECONDARY_CYLINDER_HIGH_REGISTER, (uint8_t)((sector_address >> 16) & 0xFF));
-        outb(ATA_SECONDARY_COMMAND_REGISTER, ATA_READ_REQUEST);
-    }
-
-    ATA_SELECT_DELAY();
-    uint32_t ticks = 0;
-
-    while (ata_responce.done != 1) {
-        ticks++;
-        if (ticks == TICKS_TO_END_WAIT) break;
-        asm volatile("hlt"); // wait for the irq to finish working
-    }
-
-    if (ticks == TICKS_TO_END_WAIT) {
-        printf("Error on IDENTIFY channel %x device %x\n", channel, device);
-        return 1;
-    }
-
-    if (ata_responce.was_an_error == 0)
-        print_sector_batch_data(ata_responce.spesific_request.ata_read_responce.memory, ata_request.spesific_request.ata_read_request.sector_count);  // there was no error
-    else 
-        printf("Error: %s", ata_responce.error_message);
-    
-    return ata_responce.was_an_error;
 }
 
 static uint8_t ata_handle_write_single_sector_responce() {
@@ -218,71 +127,113 @@ static uint8_t ata_handle_write_single_sector_responce() {
     return 0;
 }
 
-uint8_t ata_send_write_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count, void * data) {
+uint8_t ata_send_identify_command(ata_drive_t* drive, identify_device_data_t* buffer) {
+    // https://wiki.osdev.org/ATA_PIO_Mode#28_bit_PIO
+    ata_request.device_id = drive->device_id;
+    ata_request.pending = 0;
+    ata_request.request_type = ATA_CMD_READ_PIO;
+
+    // make sure the responce struct is ready
+    ata_responce.device_id = drive->device_id;
+    ata_responce.done = 0;
+    ata_responce.was_an_error = 0;
+    ata_responce.spesific_request.ata_read_responce.current_secotr_writen = 0;
+    ata_responce.spesific_request.ata_read_responce.memory = buffer;
+
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xe0 | (drive->device_id.master << 4));
+    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 0);
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW, 0);
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID, 0);
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH, 0);
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+
+    ata_request.pending = 1;
+
+    ATA_SELECT_DELAY();
+
+    WAIT_FOR_ATA_RESPONCE_TO_BE_DONE();
+
+    return ata_responce.was_an_error; // TODO: add an error handling situation (max tick in responce done)
+}
+
+uint8_t ata_read28_request(ata_drive_t* drive, uint32_t sector_address, uint8_t sector_count, uint8_t* buffer) {
+    // https://wiki.osdev.org/ATA_PIO_Mode#28_bit_PIO
+    ata_request.device_id = drive->device_id;
+    ata_request.pending = 0;
+    ata_request.request_type = ATA_CMD_READ_PIO;
+    ata_request.spesific_request.ata_read_request.sector_address = sector_address; 
+    ata_request.spesific_request.ata_read_request.sector_count = sector_count;
+
+    // make sure the responce struct is ready
+    ata_responce.device_id = drive->device_id;
+    ata_responce.done = 0;
+    ata_responce.was_an_error = 0;
+    ata_responce.spesific_request.ata_read_responce.current_secotr_writen = 0;
+    ata_responce.spesific_request.ata_read_responce.memory = buffer;
+
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xe0 | (drive->device_id.master << 4) | ((sector_address >> 24) & 0x0F)); // spesify what device to use (0xe0 = 0b11100000 this needs to be always on)
+    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
+    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, sector_count);
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW, (uint8_t)(sector_address & 0xFF));
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (uint8_t)((sector_address >> 8) & 0xFF));
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH, (uint8_t)((sector_address >> 16) & 0xFF));
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+
+    ata_request.pending = 1;
+
+    ATA_SELECT_DELAY();
+
+    WAIT_FOR_ATA_RESPONCE_TO_BE_DONE();
+
+    return ata_responce.was_an_error; // TODO: add an error handling situation (max tick in responce done)
+}
+
+uint8_t ata_write28_request(ata_drive_t* drive, uint32_t sector_address, uint8_t sector_count, uint8_t* buffer) {
     // https://wiki.osdev.org/ATA_PIO_Mode#28_bit_PIO
     // Note: a write request only raise an interrupt after writing a whole sector
 
     // It is important to set the busy before the any call to send the reqeust
-    ata_request.pending = 1; // tell that there is a request on the way
-    ata_request.request_type = ATA_WRITE_REQUEST;
-    ata_request.device_id.channel = channel;
+    ata_request.device_id = drive->device_id;
+    ata_request.pending = 0;
+    ata_request.request_type = ATA_CMD_WRITE_PIO;
     ata_request.spesific_request.ata_write_request.sector_address = sector_address; 
     ata_request.spesific_request.ata_write_request.sector_count = sector_count;
-    ata_request.spesific_request.ata_write_request.data = data;
+    ata_request.spesific_request.ata_write_request.data = buffer;
 
     // make sure the responce struct is ready
-    ata_responce.device_id.channel = channel;
-    ata_responce.device_id.device = device;
+    ata_responce.device_id = drive->device_id;
     ata_responce.done = 0;
-    ata_responce.error_message = NULL;
-    ata_responce.spesific_request.ata_write_responce.was_currect_sector_write_done = 0; // not done
+    ata_responce.spesific_request.ata_write_responce.was_currect_sector_write_done = 0;
 
-    if (channel == ATA_PRIMARY) {
-        outb(ATA_PRIMARY_DRIVE_HEAD_REGISTER, 0xe0 | (device << 4) | ((sector_address >> 24) & 0x0F)); // spesify what device to use (0xe0 = 0b11100000 this needs to be always on)
-        outb(ATA_PRIMARY_FEATURES_REGISTER, 0);  // send Null (0) to the feature register (don't know why)
-        outb(ATA_PRIMARY_SECTOR_COUNT_REGISTER, sector_count);
-        outb(ATA_PRIMARY_SECTOR_NUMBER_REGISTER, (uint8_t)(sector_address & 0xFF));
-        outb(ATA_PRIMARY_CYLINDER_LOW_REGISTER, (uint8_t)((sector_address >> 8) & 0xFF));
-        outb(ATA_PRIMARY_CYLINDER_HIGH_REGISTER, (uint8_t)((sector_address >> 16) & 0xFF));
-        outb(ATA_PRIMARY_COMMAND_REGISTER, ATA_WRITE_REQUEST);
-    } else {  // Secondry channel
-        outb(ATA_SECONDARY_DRIVE_HEAD_REGISTER, 0xe0 | (device << 4) | ((sector_address >> 24) & 0x0F)); // spesify what device to use (0xe0 = 0b11100000 this needs to be always on)
-        outb(ATA_SECONDARY_FEATURES_REGISTER, 0);  // send Null (0) to the feature register (don't know why)
-        outb(ATA_SECONDARY_SECTOR_COUNT_REGISTER, sector_count);
-        outb(ATA_SECONDARY_SECTOR_NUMBER_REGISTER, (uint8_t)(sector_address & 0xFF));
-        outb(ATA_SECONDARY_CYLINDER_LOW_REGISTER, (uint8_t)((sector_address >> 8) & 0xFF));
-        outb(ATA_SECONDARY_CYLINDER_HIGH_REGISTER, (uint8_t)((sector_address >> 16) & 0xFF));
-        outb(ATA_SECONDARY_COMMAND_REGISTER, ATA_WRITE_REQUEST);
-    }
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xe0 | (drive->device_id.master << 4) | ((sector_address >> 24) & 0x0F)); // spesify what device to use (0xe0 = 0b11100000 this needs to be always on)
+    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
+    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, sector_count);
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW, (uint8_t)(sector_address & 0xFF));
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (uint8_t)((sector_address >> 8) & 0xFF));
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH, (uint8_t)((sector_address >> 16) & 0xFF));
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+
+    ata_request.pending = 1;
 
     ATA_SELECT_DELAY();
     uint32_t ticks = 0;
-
-    uint16_t what_register_to_use = (ata_responce.device_id.channel == ATA_PRIMARY)? ATA_PRIMARY_DATA_REGISTER : ATA_SECONDARY_DATA_REGISTER;
 
     for (uint32_t i = 0; i < ata_request.spesific_request.ata_write_request.sector_count; i++) {
         uint32_t memory_start = (ATA_SECTOR_SIZE / 2) * i;
         ata_responce.spesific_request.ata_write_responce.was_currect_sector_write_done = 0;  // reset flag for next irq
 
         for (uint32_t k = 0; k < (ATA_SECTOR_SIZE / 2); k++) {
-                outw(what_register_to_use, ((uint16_t *)ata_request.spesific_request.ata_write_request.data)[memory_start + k]);
+                outw(drive->device_id.io_base + ATA_REG_DATA, ((uint16_t *)ata_request.spesific_request.ata_write_request.data)[memory_start + k]);
                 asm volatile ("jmp . + 2");
             }
 
-        while (ata_responce.spesific_request.ata_write_responce.was_currect_sector_write_done != 1) {
-            ticks++;
-            if (ticks == TICKS_TO_END_WAIT) break;
-            asm volatile("hlt"); // wait for the irq to finish working
-        }
-
-        if (ticks == TICKS_TO_END_WAIT) {
-            printf("Error on IDENTIFY channel %x device %x\n", channel, device);
-            return 1;
-        }
+        while (ata_responce.spesific_request.ata_write_responce.was_currect_sector_write_done != 1)
+             asm volatile("hlt"); // wait for the irq to finish working
     }
     
     return ata_responce.was_an_error;
 }
+
 
 void ata_response_handler(registers_t* regs) {
     if (ata_request.pending != 1) {
@@ -292,11 +243,11 @@ void ata_response_handler(registers_t* regs) {
 
     ata_request.pending = 0;  // update the request pending status
 
-    if (ata_request.request_type == ATA_IDENTIFY_REQUEST) {
+    if (ata_request.request_type == ATA_CMD_IDENTIFY) {
         ata_responce.was_an_error = ata_handle_identify_responce();
-    } else if (ata_request.request_type == ATA_READ_REQUEST) {
+    } else if (ata_request.request_type == ATA_CMD_READ_PIO) {
         ata_handle_read_single_sector_responce();
-    } else if (ata_request.request_type == ATA_WRITE_REQUEST) {
+    } else if (ata_request.request_type == ATA_CMD_WRITE_PIO) {
         ata_handle_write_single_sector_responce();
     }
 
@@ -306,7 +257,7 @@ void ata_response_handler(registers_t* regs) {
         outb(PIC1_COMMAND, PIC_EOI); // EOI to master
 }
 
-static void print_identify_device_data(const identify_device_data_t* id) {
+void print_identify_device_data(const identify_device_data_t* id) {
     printf("=== ATA IDENTIFY DEVICE DATA ===\n");
 
     // --- General information ---
@@ -357,9 +308,4 @@ static void print_identify_device_data(const identify_device_data_t* id) {
     //printf("Model Number: %s\n", id->ModelNumber);
 
     printf("===============================\n");
-}
-
-static void print_sector_batch_data(void *sectors, uint32_t sector_count) {
-    uint32_t size = sector_count * ATA_SECTOR_SIZE;
-    print_hexdump(sectors, size);
 }

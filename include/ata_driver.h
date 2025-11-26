@@ -4,41 +4,57 @@
 #include "types.h"
 #include "paging.h"
 
-#define ATA_MASTER_DRIVE 0
-#define ATA_SLAVE_DRIVE  1
+// Primary bus
+#define ATA_PRIMARY_IO       0x1F0
+#define ATA_PRIMARY_CTRL     0x3F6
 
-#define ATA_PRIMARY   0
-#define ATA_SECONDARY 1
+// Secondary bus
+#define ATA_SECONDARY_IO     0x170
+#define ATA_SECONDARY_CTRL   0x376
 
-#define ATA_PRIMARY_BASE_REGISTER          0x1F0
-#define ATA_PRIMARY_DATA_REGISTER          (ATA_PRIMARY_BASE_REGISTER + 0)
-#define ATA_PRIMARY_ERROR_REGISTER         (ATA_PRIMARY_BASE_REGISTER + 1)
-#define ATA_PRIMARY_FEATURES_REGISTER      (ATA_PRIMARY_BASE_REGISTER + 1)
-#define ATA_PRIMARY_SECTOR_COUNT_REGISTER  (ATA_PRIMARY_BASE_REGISTER + 2)
-#define ATA_PRIMARY_SECTOR_NUMBER_REGISTER (ATA_PRIMARY_BASE_REGISTER + 3)
-#define ATA_PRIMARY_CYLINDER_LOW_REGISTER  (ATA_PRIMARY_BASE_REGISTER + 4)
-#define ATA_PRIMARY_CYLINDER_HIGH_REGISTER (ATA_PRIMARY_BASE_REGISTER + 5) 
-#define ATA_PRIMARY_DRIVE_HEAD_REGISTER    (ATA_PRIMARY_BASE_REGISTER + 6)
-#define ATA_PRIMARY_STATUS_REGISTER        (ATA_PRIMARY_BASE_REGISTER + 7)
-#define ATA_PRIMARY_COMMAND_REGISTER       (ATA_PRIMARY_BASE_REGISTER + 7)
+// I/O port offsets from <bus>_IO
+#define ATA_REG_DATA         0x00    // Data register (16 bits)
+#define ATA_REG_ERROR        0x01    // Error register (read)
+#define ATA_REG_FEATURES     0x01    // Features register (write)
+#define ATA_REG_SECCOUNT     0x02    // Sector Count register
+#define ATA_REG_LBA_LOW      0x03    // Sector number register
+#define ATA_REG_LBA_MID      0x04    // Cylinder low register
+#define ATA_REG_LBA_HIGH     0x05    // Cylinder high register
+#define ATA_REG_HDDEVSEL     0x06    // Head / Device select register
+#define ATA_REG_COMMAND      0x07    // Command register (write)
+#define ATA_REG_STATUS       0x07    // Status register (read)
 
-#define ATA_SECONDARY_BASE_REGISTER          0x170
-#define ATA_SECONDARY_DATA_REGISTER          (ATA_SECONDARY_BASE_REGISTER + 0)
-#define ATA_SECONDARY_ERROR_REGISTER         (ATA_SECONDARY_BASE_REGISTER + 1)
-#define ATA_SECONDARY_FEATURES_REGISTER      (ATA_SECONDARY_BASE_REGISTER + 1)
-#define ATA_SECONDARY_SECTOR_COUNT_REGISTER  (ATA_SECONDARY_BASE_REGISTER + 2)
-#define ATA_SECONDARY_SECTOR_NUMBER_REGISTER (ATA_SECONDARY_BASE_REGISTER + 3)
-#define ATA_SECONDARY_CYLINDER_LOW_REGISTER  (ATA_SECONDARY_BASE_REGISTER + 4)
-#define ATA_SECONDARY_CYLINDER_HIGH_REGISTER (ATA_SECONDARY_BASE_REGISTER + 5) 
-#define ATA_SECONDARY_DRIVE_HEAD_REGISTER    (ATA_SECONDARY_BASE_REGISTER + 6)
-#define ATA_SECONDARY_STATUS_REGISTER        (ATA_SECONDARY_BASE_REGISTER + 7)
-#define ATA_SECONDARY_COMMAND_REGISTER       (ATA_SECONDARY_BASE_REGISTER + 7)
+// Control port offsets from <bus>_CTRL
+#define ATA_REG_CONTROL      0x00
+#define ATA_REG_ALTSTATUS    0x00
 
-#define ATA_IDENTIFY_REQUEST 0xEC
-#define ATA_READ_REQUEST 0x20
-#define ATA_WRITE_REQUEST 0x30
+#define ATA_SR_ERR  0x01  // Error
+#define ATA_SR_DRQ  0x08  // Data request ready
+#define ATA_SR_DF   0x20  // Device fault
+#define ATA_SR_BSY  0x80  // Busy
+
+// ATA commands
+#define ATA_CMD_READ_PIO          0x20
+#define ATA_CMD_READ_PIO_EXT      0x24
+#define ATA_CMD_WRITE_PIO         0x30
+#define ATA_CMD_WRITE_PIO_EXT     0x34
+#define ATA_CMD_IDENTIFY          0xEC
+#define ATA_CMD_FLUSH             0xE7
+#define ATA_CMD_FLUSH_EXT         0xEA
 
 #define ATA_SECTOR_SIZE 512
+
+typedef struct device_id_struct {
+    uint16_t io_base;       // io base port, 0x170 or 0x1F0
+    uint16_t ctrl_base;     // ctrl base prt, 0x376 or 0x3F6 
+    uint8_t master;         // 0 = master, 1 = slave
+} device_id_t;
+
+typedef struct ata_drive_struct {
+    device_id_t device_id;
+    uint32_t size_in_sectors;  // size of the drive in sectors (as defined above)
+    uint8_t exists;         // 0 if driver api request handled without error, else 1 
+} ata_drive_t;
 
 typedef struct __attribute__((packed)) identify_device_data_struct {
   struct {
@@ -412,66 +428,13 @@ typedef struct __attribute__((packed)) identify_device_data_struct {
   uint16_t CheckSum : 8;
 } identify_device_data_t;
 
-typedef struct device_id_struct {
-    uint8_t channel;  // the channel used for the current request
-    uint8_t device;  // the device that the communication will be sent to
-} device_id_t;
-
-typedef struct ata_identify_responce_struct {
-    identify_device_data_t device_data; // the device data we get after the identify command
-} ata_identify_responce_t;
-
-typedef struct ata_read_request_struct {
-    uint32_t sector_address; // the sector address
-    uint32_t sector_count; // the sector count
-} ata_read_request_t;
-
-typedef struct ata_read_responce_struct {
-    uint32_t current_secotr_writen; // the current sector that is writen in the current responce (irq)
-    uint8_t * memory; // dynamicly allocated memory of the memory for the device 
-} ata_read_responce_t;
-
-typedef struct ata_write_request_struct {
-    // a write sectors request
-    uint32_t sector_address; // the first sector address to write
-    size_t sector_count; // the sector count to be writen
-    void * data; // the data that wanted to be passed to the driver, 
-    // the size of data should be sector_count * ATA_SECTOR_SIZE  
-} ata_write_request_t;
-
-typedef struct ata_write_responce_struct {
-    uint8_t was_currect_sector_write_done; // 1 if the driver sent an interrupt that he have finish writing to the disk, else 1
-} ata_write_responce_t;
-
-typedef struct ata_request_struct{
-    volatile device_id_t device_id; // the device id the request was sent to
-    volatile uint8_t pending;  // set if there is a pending request, else clear
-    volatile uint8_t request_type;
-    union {
-        volatile ata_read_request_t ata_read_request;
-        volatile ata_write_request_t ata_write_request;
-    } spesific_request;  // a spesific request
-} ata_request_t;
-
-typedef struct ata_responce_struct{
-    volatile device_id_t device_id; // the device id the responce was returned from
-    volatile uint8_t done: 4;  // set if there the request have been handled, else clear 
-    volatile uint8_t was_an_error: 4;  // set if there was an error in the handeling of the request, else clear
-
-    union {
-        volatile ata_identify_responce_t ata_identify_responce;
-        volatile ata_read_responce_t ata_read_responce;
-        volatile ata_write_responce_t ata_write_responce;
-    } spesific_request;
-
-    volatile char * error_message; // incase of an error, this would be the error message
-} ata_responce_t;
-
+void ata_wait_bsy(uint16_t io);
+void ata_wait_drq(uint16_t io);
 void initiate_ata_driver(); // initiate the ata driver
-ata_responce_t * get_ata_responce_structure();  // get the internal ata responce
-uint8_t ata_send_identify_command(uint8_t channel, uint8_t device);  // send an identify request and parse the input, return 1 on error else 0
-uint8_t ata_send_read_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count);  // send a read request and parse the input, return 1 on error else 0
-uint8_t ata_send_write_command(uint8_t channel, uint8_t device, uint32_t sector_address, uint8_t sector_count, void * data); // send a write reuest
-void ata_response_handler(registers_t* regs);  // the page fault handler
+uint8_t ata_read28_request(ata_drive_t* drive, uint32_t sector_address, uint8_t sector_count, uint8_t* buffer);  // ata read28 request, buffer would be 
+uint8_t ata_write28_request(ata_drive_t* drive, uint32_t sector_address, uint8_t sector_count, uint8_t* buffer);  // ata write28 request, buffer would be 
+uint8_t ata_identify_request(ata_drive_t* drive, identify_device_data_t * id_data);  // send an identify request and parse the input, return 1 on error else 0
+
+void print_identify_device_data(const identify_device_data_t* id);
 
 #endif // ATA_DRIVER_H
