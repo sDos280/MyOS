@@ -179,12 +179,14 @@ done:
  * Stores it into the provided RAM buffer sequentially.
  */
 static uint8_t ata_handle_read_single_sector_responce() {
-    uint32_t offset_words = 256 * ata_responce.specific.read_resp.sector_index;
+    uint32_t offset_words = (ATA_SECTOR_SIZE / 2) * ata_responce.specific.read_resp.sector_index;
 
     // Read 512 bytes = 256 16-bit values
-    for (uint32_t i = 0; i < 256; i++)
+    for (uint32_t i = 0; i < (ATA_SECTOR_SIZE / 2); i++) {
+        uint16_t t = inw(ata_responce.device_id.io_base + ATA_REG_DATA);
         ((uint16_t*)ata_responce.specific.read_resp.buffer)[offset_words + i] =
-             inw(ata_responce.device_id.io_base + ATA_REG_DATA);
+             t;
+    }
 
     ata_responce.specific.read_resp.sector_index++;
     return 0;
@@ -233,7 +235,7 @@ void initiate_ata_driver() {
 uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *buffer) {
     ata_request.device_id  = drive->device_id;
     ata_request.pending    = 0;
-    ata_request.request_type = ATA_CMD_READ_PIO;
+    ata_request.request_type = ATA_CMD_IDENTIFY;
 
     ata_responce.device_id   = drive->device_id;
     ata_responce.done        = 0;
@@ -242,7 +244,6 @@ uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *bu
     ata_responce.specific.read_resp.buffer  = (uint8_t*)buffer;
 
     // Select device
-    
     outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
     outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 0);
     outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  0);
@@ -274,19 +275,22 @@ uint8_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, u
     ata_responce.device_id   = drive->device_id;
     ata_responce.done        = 0;
     ata_responce.error       = 0;
-    ata_responce.specific.read_resp.sector_index = 0;
+    ata_responce.specific.read_resp.sector_index = sector;
     ata_responce.specific.read_resp.buffer = buffer;
 
     // Select device + LBA high bits
     outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
+    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
     outb(drive->device_id.io_base + ATA_REG_SECCOUNT, count);
     outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
     outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16)&0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
+    // Send READ command
     ata_request.pending = 1;
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
     ATA_SELECT_DELAY();
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+    
 
     WAIT_FOR_ATA_RESPONSE_TO_BE_DONE();
     return ata_responce.error;
@@ -314,21 +318,24 @@ uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, 
 
     // Select device + LBA bits
     outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
+    outb(drive->device_id.io_base + 0x01, count); // not really sure why
     outb(drive->device_id.io_base + ATA_REG_SECCOUNT, count);
-    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
     // Send WRITE command
     ata_request.pending = 1;
+    ATA_SELECT_DELAY();
     outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
     
-    ATA_SELECT_DELAY();
 
     // Write sector data (256 words per sector)
     for (uint32_t s = 0; s < count; s++) {
         ata_responce.specific.write_resp.sector_write_done = 0;
-        uint16_t *src = (uint16_t*)buffer + 256*s;
+        uint16_t *src = (uint16_t*)buffer + (ATA_SECTOR_SIZE / 2)*s;
 
-        for (uint32_t i = 0; i < 256; i++) {
+        for (uint32_t i = 0; i < (ATA_SECTOR_SIZE / 2); i++) {
             outw(drive->device_id.io_base + ATA_REG_DATA, src[i]);
             asm volatile("jmp .+2"); // short mandatory delay
         }
@@ -337,6 +344,39 @@ uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, 
         while (!ata_responce.specific.write_resp.sector_write_done)
              asm volatile("hlt");
     }
+
+    return ata_responce.error;
+}
+
+/**
+ * Function: ata_flush_cache
+ * --------------------------------------
+ * Sends ATA_CMD_FLUSH to make sure the disk commits its
+ * internal write cache to physical media. This is important
+ * after write operations before shutting down or reading
+ * sectors that may still be cached.
+ */
+uint8_t ata_flush_cache(ata_drive_t *drive) {
+    // Prepare driver state
+    ata_request.device_id = drive->device_id;
+    ata_request.pending = 0;
+    ata_request.request_type = ATA_CMD_FLUSH;
+
+    ata_responce.device_id = drive->device_id;
+    ata_responce.done = 0;
+    ata_responce.error = 0;
+
+    // Select Master/Slave (LBA bits not used here)
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
+    ATA_SELECT_DELAY();
+
+    // Send flush command
+    ata_request.pending = 1;
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_FLUSH);
+
+    // FLUSH usually finishes without transferring a sector,
+    // so polling BSY until clear is enough:
+    ata_wait_bsy(drive);
 
     return ata_responce.error;
 }
@@ -371,6 +411,14 @@ static void ata_response_handler(registers_t *regs) {
             break;
         case ATA_CMD_WRITE_PIO:
             ata_handle_write_single_sector_responce();
+            break;
+        case ATA_CMD_FLUSH:
+            // FLUSH does not read/write sectors. We only check flags.
+            uint8_t st = inb(ata_request.device_id.io_base + ATA_REG_STATUS);
+            if (st & ATA_SR_ERR) ata_responce.error = 1;
+            break;
+        default:
+            printf("ATA Drive Error: Unknown command\n");
             break;
     }
 

@@ -468,6 +468,14 @@ uint8_t ata_write28_request(ata_drive_t *drive,
                            uint8_t *buffer);
 
 /**
+ * Sends FLUSH CACHE to the drive, forcing it to commit
+ * any pending writes to disk.
+ *
+ * Returns: 1 on error, 0 on success.
+ */
+uint8_t ata_flush_cache(ata_drive_t *drive);
+
+/**
  * Sends IDENTIFY command to a drive and stores parsed result.
  * Identifies if a drive exists and reads its identify block.
  *

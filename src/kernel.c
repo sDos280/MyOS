@@ -32,6 +32,8 @@ char story[512] =
         "one generation teaching the next the simple, vital truth: some things "
         "must never fail. The sea always respected that resolve in the end.";
 
+char buffer[ATA_SECTOR_SIZE + 1];
+
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
@@ -74,10 +76,19 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
 
     identify_device_data_t drive_a_identify;
     memset(&drive_a_identify, 0, sizeof(identify_device_data_t));
-
     
     if (ata_send_identify_command(&drive_a, &drive_a_identify) == 0) {
         print_identify_device_data(&drive_a_identify);
+
+        ata_write28_request(&drive_a, 2, 1, story);
+        ata_write28_request(&drive_a, 3, 1, story);
+        ata_flush_cache(&drive_a);
+
+        ata_read28_request(&drive_a, 2, 1, buffer);
+
+        printf("%c\n", buffer[0]);
+        print_hexdump(story, ATA_SECTOR_SIZE);
     }
+
     while (1);
 }
