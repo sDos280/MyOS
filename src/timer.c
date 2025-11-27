@@ -4,16 +4,17 @@
 
 static uint32_t used_frequency = 0;
 static uint32_t base_frequency = 1193180; // The PIT runs at 1.19318 MHz
+static uint32_t tick = 0;
 
 void timer_interrupt_handler(registers_t* regs){
-    static uint32_t tick = 0;
     tick++;
-    /*if (tick % used_frequency == 0) { // Every second
+    /*if (tick % used_frequency == 0) {  // every second
         printf("Tick: %d\n", tick / used_frequency);
     }*/
 }
 
 void initialize_timer(uint32_t frequency){
+    tick = 0;
     used_frequency = frequency;
     uint32_t divisor = base_frequency / frequency;
 
