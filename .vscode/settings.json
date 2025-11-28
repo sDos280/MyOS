@@ -22,6 +22,7 @@
         "stdbool.h": "c",
         "cstdint": "c",
         "printf.h": "c",
-        "arg.h": "c"
+        "arg.h": "c",
+        "fat32_driver.h": "c"
     }
 }

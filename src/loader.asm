@@ -3,27 +3,25 @@
 %define FLAGS      (1<<0 | 1<<1)
 %define CHECKSUM   -(MAGIC + FLAGS)
 
+extern stack_end
+extern kernelMain
+global loader
+
 section .multiboot
     dd MAGIC
     dd FLAGS
     dd CHECKSUM
 
 section .text
-extern kernelMain
 global loader
 
 loader:
-    mov esp, stack_top
-    push eax          ; multiboot_magic
-    push ebx          ; multiboot_structure
+    mov esp, stack_end      ; set valid stack pointer
+    push eax                ; multiboot_magic
+    push ebx                ; multiboot_structure
     call kernelMain
 
 _stop:
     cli  ; disable interrupts
     hlt
     jmp _stop
-
-section .bss
-stack_bottom:
-    resb 2*1024*1024  ; Reserve 2 MiB
-stack_top:

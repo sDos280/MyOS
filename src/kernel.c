@@ -34,6 +34,9 @@ char story[512] =
 
 char buffer[ATA_SECTOR_SIZE + 1];
 
+extern uint32_t heap_start;
+extern uint32_t heap_end;
+
 // Entry point called by GRUB
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
@@ -53,15 +56,17 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     initialize_idt();
     printf("IDT initialized.\n");
 
-    initialize_timer(50); // Initialize timer to 50Hz
+    initialize_timer(10); // Initialize timer to 50Hz
     printf("Timer initialized.\n");
-    
+
+    //printf("%p %p", &heap_start, &heap_end);
+
+    initialize_heap(); // initialize heap
+
     initialize_paging(); // init paging module
     identity_map_kernal();  // generate identity map and load table
 
     initialize_keyboard_driver();  // initialize the keyboard driver
-
-    initialize_heap(); // initialize heap
 
     // enable interrupts
     asm volatile ("sti");

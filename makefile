@@ -74,10 +74,10 @@ run: iso
 # target remote :1234
 debug: CFLAGS += -g
 debug: iso
-	$(QEMU) -cdrom $(ISO_IMAGE) -s -S -hda $(VIRTUAL_DISK)
+	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -s -S -hda $(VIRTUAL_DISK)
 
 # Cleanup
 clean:
 	rm -rf $(BUILD_DIR)/*.o $(KERNEL_BIN) $(KERNEL_ELF) $(ISO_IMAGE) $(VIRTUAL_DISK)
 	qemu-img create $(VIRTUAL_DISK) 1G 
-	dd if=$(EXAMPLE_TEXT_FILE) of=$(VIRTUAL_DISK) bs=512 seek=2048 conv=notrunc
+#	dd if=$(EXAMPLE_TEXT_FILE) of=$(VIRTUAL_DISK) bs=512 seek=5 conv=notrunc

@@ -10,12 +10,11 @@
 #define TABLE(addr)  ((addr >> 22) & 0b1111111111)
 
 extern uint32_t end; // end is defined in the linker script
-uint32_t last_address;
-
+extern uint32_t heap_start;  // heap_start is defined in the linker script
 extern uint32_t placement_address; // defined in kheap.c
-
-page_directory_t kernel_directory;
-page_directory_t * current_directory;
+static uint32_t last_address;
+static page_directory_t kernel_directory;
+static page_directory_t * current_directory;
 
 void static print_page_directory(page_directory_t* dir) {
     clear_screen();
@@ -97,7 +96,7 @@ void identity_map_kernal() {
 
     // allocate all the tables needed for the kernal heap
     table_count = TABLE(KHEAP_INITIAL_SIZE) + 1; // +1, index to count
-    for (size_t t = TABLE(KHEAP_START); t < TABLE(KHEAP_START) + table_count; t++) {
+    for (size_t t = TABLE((uint32_t)(&heap_start)); t < TABLE((uint32_t)(&heap_start)) + table_count; t++) {
         // allocate a page for a page table (return is physical address)
         uint32_t phys = alloc_unfreable_phys(0x1000, 1);
 
@@ -119,7 +118,7 @@ void identity_map_kernal() {
     }
 
     // create kernel heap identity map
-    for(uint32_t addr = KHEAP_START; addr < KHEAP_START + KHEAP_INITIAL_SIZE; addr += PAGE_SIZE) {
+    for(uint32_t addr = (uint32_t)(&heap_start); addr < (uint32_t)(&heap_start) + KHEAP_INITIAL_SIZE; addr += PAGE_SIZE) {
         page_table_t * table = kernel_directory.tables[TABLE(addr)];
         table->entries[PAGE(addr)].present = 1;
         table->entries[PAGE(addr)].rw = 1;

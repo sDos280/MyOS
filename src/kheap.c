@@ -1,9 +1,11 @@
 #include "kheap.h"
 #include "screen.h"
 
-extern uint32_t end;
-uint32_t placement_address = (uint32_t)&end; // the last unused address
-heap_t kernel_heap;
+extern uint32_t end; // end is defined in the linker script
+extern uint32_t heap_start;  // heap_start is defined in the linker script
+uint32_t placement_address;
+heap_t kernel_heap;   
+
 
 uint32_t alloc_unfreable_phys(size_t size, uint8_t align) {
     uint32_t temp;
@@ -60,7 +62,9 @@ void print_heap_status() {
 }
 
 void initialize_heap(){
-    heap_chunk_t * first_chunk = (heap_chunk_t *)KHEAP_START;
+    placement_address = (uint32_t)&end;
+
+    heap_chunk_t * first_chunk = (heap_chunk_t *)(&heap_start);
     first_chunk->is_used = CHUNK_NOT_IN_US;
     first_chunk->size = KHEAP_INITIAL_SIZE - sizeof(heap_chunk_t);
     first_chunk->previous = NULL;
