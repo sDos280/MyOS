@@ -1,6 +1,6 @@
 #include "types.h"
 #include "description_tables.h"
-#include "screen.h"
+#include "print.h"
 #include "timer.h"
 #include "paging.h"
 #include "multiboot.h"
@@ -44,13 +44,13 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
         PANIC("Error: multiboot magic number unknown")
     }
 
-    screen_handler_t screen_handler;    
+    tty_t tty;
+    tty_initialize(&tty);
+    print_set_tty(&tty);
+
     initialize_gdt();
 
-    assign_screen_handler(&screen_handler);
-    initialize_screen_handler();
-    
-    clear_screen();
+    print_clean_screen();
     printf("Hello, Kernel World!\n");
 
     initialize_idt();

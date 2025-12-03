@@ -1,5 +1,5 @@
-#ifndef KEY_MOUSE_H
-#define KEY_MOUSE_H
+#ifndef KEYBOARD_DRIVER_H
+#define KEYBOARD_DRIVER_H
 
 #include "description_tables.h"
 
@@ -181,4 +181,4 @@ void keyboard_handler(registers_t* regs);  // the keyboard interrupt handler
 uint8_t is_key_pressed(uint8_t key);
 char get_asynchronized_char(); // get the next get asynchronized char (0 if there is no new char)
 
-#endif // KEY_MOUSE_H
+#endif // KEYBOARD_DRIVER_H

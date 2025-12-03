@@ -23,6 +23,8 @@
         "cstdint": "c",
         "printf.h": "c",
         "arg.h": "c",
-        "fat32_driver.h": "c"
+        "fat32_driver.h": "c",
+        "tty_driver.h": "c",
+        "print.h": "c"
     }
 }

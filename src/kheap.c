@@ -1,5 +1,5 @@
 #include "kheap.h"
-#include "screen.h"
+#include "print.h"
 
 extern uint32_t end; // end is defined in the linker script
 extern uint32_t heap_start;  // heap_start is defined in the linker script
@@ -22,7 +22,7 @@ uint32_t alloc_unfreable_phys(size_t size, uint8_t align) {
 }
 
 void print_heap_status() {
-    clear_screen();
+    print_clean_screen();
     printf("--- Kernel Heap Status ---\n");
     
     if (kernel_heap.heap_first == NULL) {

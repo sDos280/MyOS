@@ -1,5 +1,5 @@
 #include "timer.h"
-#include "screen.h"
+#include "print.h"
 #include "port.h"
 
 static uint32_t used_frequency = 0;

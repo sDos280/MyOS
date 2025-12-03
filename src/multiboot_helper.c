@@ -1,5 +1,5 @@
 #include "multiboot_helper.h"
-#include "screen.h"
+#include "print.h"
 
 void print_multiboot_usable_memory_map(multiboot_uint32_t mmap_length, multiboot_uint32_t mmap_addr) {
     multiboot_memory_map_t * entry = (multiboot_memory_map_t *)mmap_addr;

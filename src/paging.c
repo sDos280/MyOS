@@ -2,7 +2,7 @@
 #include "utils.h"
 #include "panic.h"
 #include "kheap.h"
-#include "screen.h"
+#include "print.h"
 
 // paging breaks down a linear address: | Table Entry (10 bits) | Page Entry (10 bits) | Offset (12 bits) |
 #define OFFSET(addr) (addr & 0b111111111111)
@@ -17,7 +17,7 @@ static page_directory_t kernel_directory;
 static page_directory_t * current_directory;
 
 void static print_page_directory(page_directory_t* dir) {
-    clear_screen();
+    print_clean_screen();
 
     print_const_string("Page Directory Table:\n");
     print_const_string("====================\n");

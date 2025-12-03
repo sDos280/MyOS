@@ -1,6 +1,6 @@
 #include "keyboard_driver.h"
 #include "port.h"
-#include "screen.h"
+#include "print.h"
 #include "utils.h"
 
 // Each index is the PS/2 Set 1 scan code
@@ -159,6 +159,8 @@ void keyboard_handle_scancode(uint8_t scancode) {
 
     /* update keyboard state */
     keyboard_state[key] = released;
+
+    printf("key: %d, released: %d\n", key, released);
 }
 
 void initialize_keyboard_driver() {
