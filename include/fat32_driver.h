@@ -78,15 +78,6 @@ typedef struct __attribute__((packed)) fat32_fsinfo_struct {
     uint32_t trail_signature;      // Must be FAT32_FSINFO_SIGNATURE3 (0xAA550000)
 } fat32_fsinfo_t;
 
-typedef struct __attribute__((packed)) fat32_directory_entry_struct {
-    char     name[11];       // The name of the directory in a 8.3 format
-    uint8_t  attr;           // The atribute of the directory
-    uint8_t  windows_nt;     // Ceserved for windows nt 
-    uint8_t  create_time;    // Creation time in hundredths of a second
-    uint32_t first_cluster;  // the first cluster of the directory (e.g. the current cluster)
-    uint32_t file_size;      // the size of the directory in with the header
-} fat32_directory_entry_t;
-
 // =======================================================
 //                  Standard 8.3 Directory Entry
 // =======================================================
