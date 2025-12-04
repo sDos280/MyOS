@@ -56,10 +56,8 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     initialize_idt();
     printf("IDT initialized.\n");
 
-    initialize_timer(10); // Initialize timer to 50Hz
+    initialize_timer(10); // Initialize timer to 10Hz
     printf("Timer initialized.\n");
-
-    //printf("%p %p", &heap_start, &heap_end);
 
     initialize_heap(); // initialize heap
 
@@ -95,5 +93,9 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
         print_hexdump(story, ATA_SECTOR_SIZE);
     }
 
-    while (1);
+    while (1) {
+        char c = getc();
+
+        printf("char: %c\n", c);
+    }
 }

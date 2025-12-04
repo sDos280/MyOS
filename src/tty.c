@@ -1,9 +1,12 @@
-#include "tty_driver.h"
+#include "tty.h"
 #include "screen.h"
 #include "utils.h"
 
 void tty_initialize(tty_t * tty) {
     tty_clean_buffer(tty);
+    memset(tty->in_char_queue, 0, TTY_IN_CHAR_QUEUE_SIZE);
+    tty->head = -1;
+    tty->tail = -1;
 }
 
 void tty_clean_buffer(tty_t * tty) {
@@ -11,7 +14,7 @@ void tty_clean_buffer(tty_t * tty) {
     tty->column = 0;
     tty->row = 0;
     tty->screen_row = 0;
-    memset(tty->buffer, 0, SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
+    memset(tty->screeb_buffer, 0, SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
 }
 
 void tty_write_char(tty_t * tty, char c) {
@@ -35,7 +38,7 @@ void tty_write_char(tty_t * tty, char c) {
         break;
     
     default:
-        tty->buffer[tty->row][tty->column] = c;
+        tty->screeb_buffer[tty->row][tty->column] = c;
         tty->column++;
         break;
     }
@@ -53,5 +56,41 @@ void tty_write_char(tty_t * tty, char c) {
 
     if (print_char_to_screen) screen_print_char(c, relative_row, column_copy);
     if (flush_screen == 1) screen_flush_tty(tty);
+}
 
+static uint8_t is_in_char_queue_empty(tty_t * tty) {
+    return tty->head == -1;
+}
+
+static uint8_t is_in_char_queue_full(tty_t * tty) {
+    return (tty->tail + 1) % TTY_IN_CHAR_QUEUE_SIZE == tty->head;
+}
+
+void tty_putc(tty_t * tty, char c) {
+    if (is_in_char_queue_full(tty))
+        tty_getc(tty);  // the quere is full, so remove one element to clear spot
+
+    if (is_in_char_queue_empty(tty)) {
+        tty->head = 0; // Initialize front for the first element
+    }
+    
+    tty->tail = (tty->tail + 1) % TTY_IN_CHAR_QUEUE_SIZE;
+    tty->in_char_queue[tty->tail] = c;
+}
+
+char tty_getc(tty_t * tty) {
+    while (is_in_char_queue_empty(tty));  /* do nothing if key is empty */
+
+    char data = tty->in_char_queue[tty->head];
+
+    if (tty->head == tty->tail) { 
+        // If queue becomes empty after getting this element, reset both pointers to -1
+        tty->head = -1;
+        tty->tail = -1;
+    } else {
+        // Use modulo to wrap the head index around
+        tty->head = (tty->head + 1) % TTY_IN_CHAR_QUEUE_SIZE;
+    }
+
+    return data;
 }

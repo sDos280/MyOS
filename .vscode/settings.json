@@ -25,6 +25,13 @@
         "arg.h": "c",
         "fat32_driver.h": "c",
         "tty_driver.h": "c",
-        "print.h": "c"
+        "print.h": "c",
+        "array": "c",
+        "deque": "c",
+        "vector": "c",
+        "string_view": "c",
+        "span": "c",
+        "random": "c",
+        "tty.h": "c"
     }
 }

@@ -2,6 +2,7 @@
 #include "port.h"
 #include "print.h"
 #include "utils.h"
+#include "tty.h"
 
 // Each index is the PS/2 Set 1 scan code
 // 0xFF = unmapped / unused.
@@ -141,7 +142,7 @@ static char key_to_ascii(uint8_t key_index) {
 
 void keyboard_handle_scancode(uint8_t scancode) {
     uint8_t key;
-    uint8_t released;
+    uint8_t pressed;
 
     /* check if next scancode will be extended */
     if (scancode == KEY_EXTENDED) {
@@ -149,7 +150,7 @@ void keyboard_handle_scancode(uint8_t scancode) {
         return;
     }
 
-    released = (scancode & 0x80) >> 7;
+    pressed = !(scancode & 0x80);
 
     if (extended_key == 1) {
         key = ex_code_to_key[scancode & 0x7f];
@@ -157,10 +158,11 @@ void keyboard_handle_scancode(uint8_t scancode) {
         key = scancode_to_key_index[scancode & 0x7f];
     }
 
-    /* update keyboard state */
-    keyboard_state[key] = released;
+    /* check if there is a need to add the key to the tty putc queue */
+    if ((pressed == KEY_PRESSED) && (keyboard_state[key] == KEY_RELEASED)) putc(key_to_ascii(key));
 
-    printf("key: %d, released: %d\n", key, released);
+    /* update keyboard state */
+    keyboard_state[key] = pressed;
 }
 
 void initialize_keyboard_driver() {

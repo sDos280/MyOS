@@ -1,4 +1,4 @@
-#include "tty_driver.h"
+#include "tty.h"
 #include "print.h"
 #include "arg.h"
 
@@ -14,6 +14,14 @@ void print_char(char c) {
 
 void print_clean_screen() {
     tty_clean_buffer(ctty);
+}
+
+void putc(char c) {
+    tty_putc(ctty, c);
+}
+
+char getc() {
+    return tty_getc(ctty);
 }
 
 void printf(const char* format, ...) {
