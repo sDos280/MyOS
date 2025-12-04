@@ -154,12 +154,13 @@ void keyboard_handle_scancode(uint8_t scancode) {
 
     if (extended_key == 1) {
         key = ex_code_to_key[scancode & 0x7f];
+        extended_key = 0;
     } else {
         key = scancode_to_key_index[scancode & 0x7f];
     }
 
     /* check if there is a need to add the key to the tty putc queue */
-    if ((pressed == KEY_PRESSED) && (keyboard_state[key] == KEY_RELEASED)) putc(key_to_ascii(key));
+    if ((pressed == KEY_PRESSED) && (keyboard_state[key] == KEY_RELEASED) && (key_to_ascii(key) != 0)) putc(key_to_ascii(key));
 
     /* update keyboard state */
     keyboard_state[key] = pressed;

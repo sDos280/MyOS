@@ -96,6 +96,9 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     while (1) {
         char c = getc();
 
-        printf("char: %c\n", c);
+        if (c == 'm') {
+            tty_set_anker_state(&tty, !tty.ankered);
+            printf("Tty state: %s\n", (tty.ankered)? "ankered" : "not ankered");
+        } else printf("char: %c\n", c);
     }
 }

@@ -7,6 +7,25 @@ void tty_initialize(tty_t * tty) {
     memset(tty->in_char_queue, 0, TTY_IN_CHAR_QUEUE_SIZE);
     tty->head = -1;
     tty->tail = -1;
+    tty->ankered = TTY_ANKERED;
+}
+
+void tty_set_anker_state(tty_t * tty, uint8_t state) {
+    tty->ankered = state;
+
+    if (state == TTY_ANKERED) { /* there is a need to reset screen row*/
+        if (tty->row < SCREEN_ROWS) {
+            tty->screen_row = 0;
+        } else if (tty->row == SCREEN_ROWS) {
+            tty->screen_row = tty->row - (tty->column != 0);
+        } else { // tty->row > SCREEN_ROWS
+            tty->screen_row = tty->row - SCREEN_ROWS + (tty->column != 0);
+        }
+    }
+}
+
+void tty_set_screen_row(tty_t * tty, uint32_t row) {
+    tty->screen_row = row % SCREEN_BUFFER_ROWS;
 }
 
 void tty_clean_buffer(tty_t * tty) {
@@ -25,7 +44,8 @@ void tty_write_char(tty_t * tty, char c) {
     
     /* check if next char to write is over the screen */
     if (relative_row >= SCREEN_ROWS) {
-        tty->screen_row = (tty->screen_row + 1) % SCREEN_BUFFER_ROWS;
+        if (tty->ankered == TTY_ANKERED)
+            tty->screen_row = (tty->screen_row + 1) % SCREEN_BUFFER_ROWS;
         flush_screen = 1;
     }
 
