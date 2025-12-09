@@ -16,12 +16,20 @@ void print_clean_screen() {
     tty_clean_buffer(ctty);
 }
 
-void putc(char c) {
-    tty_putc(ctty, c);
+void putchar(char c) {
+    tty_putchar(ctty, c);
 }
 
-char getc() {
-    return tty_getc(ctty);
+char getchar() {
+    return tty_getchar(ctty);
+}
+
+void put_key_press(uint8_t key) {
+    tty_put_key_press(ctty, key);
+}
+
+uint8_t get_key_press() {
+    return tty_get_key_press(ctty);
 }
 
 void printf(const char* format, ...) {

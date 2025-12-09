@@ -6,8 +6,10 @@
 
 void print_set_tty(tty_t * tty);
 void print_clean_screen();
-void putc(char c);
-char getc();
+void putchar(char c);
+char getchar();
+void put_key_press(uint8_t key);
+uint8_t get_key_press();
 
 void print_char(char c);
 void printf(const char* format, ...);

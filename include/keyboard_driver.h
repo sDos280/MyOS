@@ -6,15 +6,6 @@
 #define KEY_RELEASED 0
 #define KEY_PRESSED  1
 
-/*
- * Logical keyboard key indices
- * -----------------------------
- * These indices are used for your `keyboard_state[]` array.
- * Each index corresponds to a unique key *type*, not necessarily a unique scan code.
- * 
- * You can map multiple scan codes to the same logical key index (e.g. top-row '1' and keypad '1').
- */
-
 #define KEY_NO_KEY      0
 
 //
@@ -176,6 +167,7 @@ typedef struct key_queue_struct {
     uint32_t tail;
 } key_queue_t;
 
+char key_to_ascii(uint8_t key);
 void initialize_keyboard_driver(); // initialize keyboard driver
 void keyboard_handler(registers_t* regs);  // the keyboard interrupt handler
 uint8_t is_key_pressed(uint8_t key);
