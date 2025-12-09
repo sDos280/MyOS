@@ -16,7 +16,7 @@ void tty_initialize(tty_t * tty) {
 void tty_set_anker_state(tty_t * tty, uint8_t state) {
     tty->ankered = state;
 
-    if (state == TTY_ANKERED) { /* there is a need to reset screen row*/
+    if (state == TTY_ANKERED) { /* there is a need to reset screen row */
         if (tty->row < SCREEN_ROWS) {
             tty->screen_row = 0;
         } else if (tty->row == SCREEN_ROWS) {
@@ -24,6 +24,8 @@ void tty_set_anker_state(tty_t * tty, uint8_t state) {
         } else { // tty->row > SCREEN_ROWS
             tty->screen_row = tty->row - SCREEN_ROWS + (tty->column != 0);
         }
+
+        screen_flush_tty(tty); /* update the screen */
     }
 }
 
@@ -32,7 +34,7 @@ void tty_set_screen_row(tty_t * tty, int32_t row) {
     else if (row >= 0 && row < SCREEN_BUFFER_ROWS - SCREEN_ROWS) tty->screen_row = row;
     else tty->screen_row = SCREEN_BUFFER_ROWS - SCREEN_ROWS;
 
-     screen_flush_tty(tty); /* update the screen*/
+    screen_flush_tty(tty); /* update the screen */
 }
 
 void tty_clean_buffer(tty_t * tty) {

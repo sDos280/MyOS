@@ -229,7 +229,7 @@ static uint8_t extended_key = 0; // 0 if keyboard got regular key, else 1 (for e
 
 char key_to_ascii(uint8_t key) {
     if (key >= sizeof(key_ascii_map))
-        return -1;
+        return 0;
 
     return key_ascii_map[key];
 }

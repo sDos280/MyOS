@@ -94,11 +94,17 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     }
 
     while (1) {
-        char c = getc();
-
-        if (c == 'm') {
+        uint8_t key = get_key_press();
+        if (tty.ankered == TTY_NOT_ANKERED) 
+            if (key == KEY_ARROW_UP) 
+                tty_set_screen_row(&tty, tty.screen_row - 1);
+            else if (key == KEY_ARROW_DOWN) 
+                tty_set_screen_row(&tty, tty.screen_row + 1);
+        
+        if (key == KEY_LSHIFT) 
             tty_set_anker_state(&tty, !tty.ankered);
-            printf("Tty state: %s\n", (tty.ankered)? "ankered" : "not ankered");
-        } else printf("char: %c\n", c);
+        
+        if (key_to_ascii(key) != 0)
+            printf("char: %c, d: %d\n", key_to_ascii(key), key);
     }
 }
