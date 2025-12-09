@@ -5,8 +5,11 @@
 void tty_initialize(tty_t * tty) {
     tty_clean_buffer(tty);
     memset(tty->in_char_queue, 0, TTY_IN_CHAR_QUEUE_SIZE);
-    tty->head = -1;
-    tty->tail = -1;
+    tty->head_char_queue = -1;
+    tty->tail_char_queue = -1;
+    memset(tty->in_key_queue, 0, TTY_IN_KEY_QUEUE_SIZE);
+    tty->head_key_queue = -1;
+    tty->tail_key_queue = -1;
     tty->ankered = TTY_ANKERED;
 }
 
@@ -24,8 +27,12 @@ void tty_set_anker_state(tty_t * tty, uint8_t state) {
     }
 }
 
-void tty_set_screen_row(tty_t * tty, uint32_t row) {
-    tty->screen_row = row % SCREEN_BUFFER_ROWS;
+void tty_set_screen_row(tty_t * tty, int32_t row) {
+    if (row < 0) row = 0;
+    else if (row >= 0 && row < SCREEN_BUFFER_ROWS - SCREEN_ROWS) tty->screen_row = row;
+    else tty->screen_row = SCREEN_BUFFER_ROWS - SCREEN_ROWS;
+
+     screen_flush_tty(tty); /* update the screen*/
 }
 
 void tty_clean_buffer(tty_t * tty) {
@@ -79,37 +86,74 @@ void tty_write_char(tty_t * tty, char c) {
 }
 
 static uint8_t is_in_char_queue_empty(tty_t * tty) {
-    return tty->head == -1;
+    return tty->head_char_queue == -1;
 }
 
 static uint8_t is_in_char_queue_full(tty_t * tty) {
-    return (tty->tail + 1) % TTY_IN_CHAR_QUEUE_SIZE == tty->head;
+    return (tty->tail_char_queue + 1) % TTY_IN_CHAR_QUEUE_SIZE == tty->head_char_queue;
 }
 
-void tty_putc(tty_t * tty, char c) {
+static uint8_t is_in_key_queue_empty(tty_t * tty) {
+    return tty->head_key_queue == -1;
+}
+
+static uint8_t is_in_key_queue_full(tty_t * tty) {
+    return (tty->tail_key_queue + 1) % TTY_IN_KEY_QUEUE_SIZE == tty->head_key_queue;
+}
+
+void tty_putchar(tty_t * tty, char c) {
     if (is_in_char_queue_full(tty))
-        tty_getc(tty);  // the quere is full, so remove one element to clear spot
+        tty_getchar(tty);  // the quere is full, so remove one element to clear spot
 
     if (is_in_char_queue_empty(tty)) {
-        tty->head = 0; // Initialize front for the first element
+        tty->head_char_queue = 0; // Initialize front for the first element
     }
     
-    tty->tail = (tty->tail + 1) % TTY_IN_CHAR_QUEUE_SIZE;
-    tty->in_char_queue[tty->tail] = c;
+    tty->tail_char_queue = (tty->tail_char_queue + 1) % TTY_IN_CHAR_QUEUE_SIZE;
+    tty->in_char_queue[tty->tail_char_queue] = c;
 }
 
-char tty_getc(tty_t * tty) {
-    while (is_in_char_queue_empty(tty));  /* do nothing if key is empty */
+char tty_getchar(tty_t * tty) {
+    while (is_in_char_queue_empty(tty));  /* do nothing if queue is empty */
 
-    char data = tty->in_char_queue[tty->head];
+    char data = tty->in_char_queue[tty->head_char_queue];
 
-    if (tty->head == tty->tail) { 
+    if (tty->head_char_queue == tty->tail_char_queue) { 
         // If queue becomes empty after getting this element, reset both pointers to -1
-        tty->head = -1;
-        tty->tail = -1;
+        tty->head_char_queue = -1;
+        tty->tail_char_queue = -1;
     } else {
         // Use modulo to wrap the head index around
-        tty->head = (tty->head + 1) % TTY_IN_CHAR_QUEUE_SIZE;
+        tty->head_char_queue = (tty->head_char_queue + 1) % TTY_IN_CHAR_QUEUE_SIZE;
+    }
+
+    return data;
+}
+
+void tty_put_key_press(tty_t * tty, uint8_t key) {
+    if (is_in_key_queue_full(tty))
+        tty_get_key_press(tty);  // the quere is full, so remove one element to clear spot
+
+    if (is_in_key_queue_empty(tty)) {
+        tty->head_key_queue = 0; // Initialize front for the first element
+    }
+
+    tty->tail_key_queue = (tty->tail_key_queue + 1) % TTY_IN_KEY_QUEUE_SIZE;
+    tty->in_key_queue[tty->tail_key_queue] = key;
+}
+
+uint8_t tty_get_key_press(tty_t * tty) {
+    while (is_in_key_queue_empty(tty));  /* do nothing if key is empty */
+
+    uint8_t data = tty->in_key_queue[tty->head_key_queue];
+
+    if (tty->head_key_queue == tty->tail_key_queue) { 
+        // If queue becomes empty after getting this element, reset both pointers to -1
+        tty->head_key_queue = -1;
+        tty->tail_key_queue = -1;
+    } else {
+        // Use modulo to wrap the head index around
+        tty->head_key_queue = (tty->head_key_queue + 1) % TTY_IN_KEY_QUEUE_SIZE;
     }
 
     return data;
