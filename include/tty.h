@@ -13,6 +13,7 @@
 #define TTY_NOT_ANKERED 1
 
 #define TTY_IN_CHAR_QUEUE_SIZE 50
+#define TTY_IN_KEY_QUEUE_SIZE TTY_IN_CHAR_QUEUE_SIZE
 
 typedef struct tty_struct {
     /* write position */
@@ -22,17 +23,22 @@ typedef struct tty_struct {
     char screeb_buffer[SCREEN_BUFFER_ROWS]
           [SCREEN_BUFFER_COLUMNS];               /* the char buffer used to save the terminal char data */
     char in_char_queue[TTY_IN_CHAR_QUEUE_SIZE];  /* a queue of the incoming chars */
-    int32_t head;                                /* the head of the in char queue */
-    int32_t tail;                                /* the tail of the in char queue */
+    int32_t head_char_queue;                     /* the head of the in char queue */
+    int32_t tail_char_queue;                     /* the tail of the in char queue */
+    char in_key_queue[TTY_IN_KEY_QUEUE_SIZE];   /* a queue of the incoming chars */
+    int32_t head_key_queue;                      /* the head of the in char queue */
+    int32_t tail_key_queue;                      /* the tail of the in char queue */
     uint8_t ankered;                             /* the ankered state of the tty */
 } tty_t;
 
 void tty_initialize(tty_t * tty);
 void tty_set_anker_state(tty_t * tty, uint8_t state);
-void tty_set_screen_row(tty_t * tty, uint32_t row);
+void tty_set_screen_row(tty_t * tty, int32_t row);
 void tty_clean_buffer(tty_t * tty);  /* write a char to the current write position */
 void tty_write_char(tty_t * tty, char c); /* set the current */
-void tty_putc(tty_t * tty, char c);
-char tty_getc(tty_t * tty);
+void tty_putchar(tty_t * tty, char c);
+char tty_getchar(tty_t * tty);
+void tty_put_key_press(tty_t * tty, uint8_t key);
+uint8_t tty_get_key_press(tty_t * tty);
 
 #endif // TTY_DRIVER_H
