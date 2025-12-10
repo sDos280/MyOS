@@ -43,6 +43,8 @@ void tty_clean_buffer(tty_t * tty) {
     tty->row = 0;
     tty->screen_row = 0;
     memset(tty->screeb_buffer, 0, SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
+
+    screen_flush_tty(tty); /* update the screen */
 }
 
 void tty_write_char(tty_t * tty, char c) {
