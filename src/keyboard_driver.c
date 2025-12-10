@@ -126,7 +126,7 @@ static unsigned char ex_code_to_key[128] = {
 	0,              0,            0,          0,              0,            0,               0, 0		   /* 0x78-0x7F */
 };
 
-static const char key_ascii_map[] = {
+static const char key_ascii_map_shift_off[] = {
     0,      // KEY_NO_KEY = 0
 
     // Digits (top row)
@@ -139,7 +139,7 @@ static const char key_ascii_map[] = {
     '6',    // 7
     '7',    // 8
     '8',    // 9
-    '9',    // 10
+    '9',    // 0
 
     // Keypad digits
     '0',    // 11
@@ -187,7 +187,7 @@ static const char key_ascii_map[] = {
     // Control keys
     0,      // 59  ESC
     '\t',   // 60  TAB
-    0,0,0,0,0,0,0,0,           // 61–67
+    0,0,0,0,0,0,0,           // 61–67
     ' ',    // 68  SPACE
     '\n',   // 69  ENTER
     0,      // 70  BACKSPACE is handled separately
@@ -223,15 +223,114 @@ static const char key_ascii_map[] = {
     0,0,0                          // 102–104
 };
 
+static const char key_ascii_map_shift_on[] = {
+    0,      // KEY_NO_KEY = 0
+
+    // Digits (top row)
+    '!',    // 1  KEY_0
+    '@',    // 2
+    '#',    // 3
+    '$',    // 4
+    '%',    // 5
+    '^',    // 6
+    '&',    // 7
+    '*',    // 8
+    '(',    // 9
+    ')',    // 10
+
+    // Keypad digits
+    '0',    // 11
+    '1',    // 12
+    '2',    // 13
+    '3',    // 14
+    '4',    // 15
+    '5',    // 16
+    '6',    // 17
+    '7',    // 18
+    '8',    // 19
+    '9',    // 20
+
+    // Letters (always lowercase here)
+    'A',    // 21
+    'B',    // 22
+    'C',    // 23
+    'D',    // 24
+    'E',    // 25
+    'F',    // 26
+    'G',    // 27
+    'H',    // 28
+    'I',    // 29
+    'J',    // 30
+    'K',    // 31
+    'L',    // 32
+    'M',    // 33
+    'N',    // 34
+    'O',    // 35
+    'P',    // 36
+    'Q',    // 37
+    'R',    // 38
+    'S',    // 39
+    'T',    // 40
+    'U',    // 41
+    'V',    // 42
+    'W',    // 43
+    'X',    // 44
+    'Y',    // 45
+    'Z',    // 46
+
+    // F1–F12 → 0 (non-printable)
+    0,0,0,0,0,0,0,0,0,0,0,0,   // 47–58
+
+    // Control keys
+    0,      // 59  ESC
+    '\t',   // 60  TAB
+    0,0,0,0,0,0,0,           // 61–67
+    ' ',    // 68  SPACE
+    '\n',   // 69  ENTER
+    0,      // 70  BACKSPACE is handled separately
+
+    // Navigation keys: all 0
+    0,0,0,0,0,0,0,0,0,         // 71–80
+
+    // Keypad ops
+    '+',    // 81
+    '-',    // 82
+    '*',    // 83
+    '/',    // 84
+    '\n',   // 85  KP_ENTER
+    '.',    // 86  KP_DOT
+
+    // Symbols
+    '_',    // 87 KEY_MINUS
+    '+',    // 88
+    '{',    // 89
+    '}',    // 90
+    '|',   // 91
+    ':',    // 92
+    '\"',   // 93
+    '~',    // 94
+    '<',    // 95
+    '>',    // 96
+    '?',    // 97
+
+    // System keys → 0
+    0,0,0,0,                       // 98–101
+
+    // Windows keys
+    0,0,0                          // 102–104
+};
+
 static uint8_t keyboard_state[KEY_COUNT];
 static key_queue_t key_queue;  // key press queue
 static uint8_t extended_key = 0; // 0 if keyboard got regular key, else 1 (for extended)
+static uint8_t shift_on = 0;
 
 char key_to_ascii(uint8_t key) {
-    if (key >= sizeof(key_ascii_map))
+    if (key >= KEY_COUNT)
         return 0;
 
-    return key_ascii_map[key];
+    if (shift_on) return key_ascii_map_shift_on[key];
+    else return key_ascii_map_shift_off[key];
 }
 
 void keyboard_handle_scancode(uint8_t scancode) {
@@ -253,6 +352,12 @@ void keyboard_handle_scancode(uint8_t scancode) {
         key = scancode_to_key_index[scancode & 0x7f];
     }
 
+
+    /* update shift case */
+    if (key == KEY_LSHIFT || key == KEY_RSHIFT) {
+        shift_on = pressed;
+    }
+    
     /* check if there is a need to add the key to the tty putc queue */
     if ((pressed == KEY_PRESSED) && (keyboard_state[key] == KEY_RELEASED)) {
         put_key_press(key);
@@ -268,6 +373,7 @@ void initialize_keyboard_driver() {
     // set the key pressed queue
     key_queue.head = 0;
     key_queue.tail = 0;
+    shift_on = 0;
 
     memset(key_queue.queue, 0, KEY_QUEUE_SIZE);
     

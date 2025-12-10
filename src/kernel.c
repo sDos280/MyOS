@@ -101,10 +101,11 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
             else if (key == KEY_ARROW_DOWN) 
                 tty_set_screen_row(&tty, tty.screen_row + 1);
         
-        if (key == KEY_LSHIFT) 
+        if (key == KEY_LALT) 
             tty_set_anker_state(&tty, !tty.ankered);
         
-        if (key_to_ascii(key) != 0)
+        if (key_to_ascii(key) != 0) {
             printf("char: %c, d: %d\n", key_to_ascii(key), key);
+        }
     }
 }
