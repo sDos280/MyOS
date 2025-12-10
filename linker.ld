@@ -46,6 +46,7 @@ SECTIONS
         heap_start = .;
         . = . + HEAP_SIZE;
         heap_end = .;
+        . = ALIGN(4096);
     }
 
     /* Marks real end of the used address space */
