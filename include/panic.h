@@ -1,8 +1,15 @@
 #ifndef PANIC_H
 #define PANIC_H
 
-#include "screen.h"
+#include "print.h"
 
-#define PANIC(message) {print_const_string(message);while(1){__asm__ __volatile("hlt");}};
+#define PANIC(message)                                         \
+    do {                                                        \
+        printf("KERNEL PANIC: %s at %s:%d in %s()\n",          \
+               message, __FILE__, __LINE__, __func__);         \
+        while (1) {                                            \
+            __asm__ __volatile__("hlt");                       \
+        }                                                       \
+    } while (0)
 
 #endif // PANIC_H
