@@ -12,20 +12,19 @@ BUILD_DIR = build
 # Flags
 CFLAGS = -m32 -nostdlib -fno-builtin -fno-exceptions -fno-leading-underscore -I$(INCLUDE_DIR)
 ASFLAGS = -f elf32
-LDFLAGS = -melf_i386
+LDFLAGS = -m elf_i386
 
 # Files
 SOURCES_C = $(wildcard $(SOURCE_DIR)/*.c)
 SOURCES_S = $(wildcard $(SOURCE_DIR)/*.asm)
-OBJECTS_C = $(patsubst $(SOURCE_DIR)/%.c, $(BUILD_DIR)/%.o, $(SOURCES_C))
-OBJECTS_S = $(patsubst $(SOURCE_DIR)/%.asm, $(BUILD_DIR)/%.o, $(SOURCES_S))
+OBJECTS_C = $(patsubst $(SOURCE_DIR)/%.c,$(BUILD_DIR)/%.o,$(SOURCES_C))
+OBJECTS_S = $(patsubst $(SOURCE_DIR)/%.asm,$(BUILD_DIR)/%.o,$(SOURCES_S))
 OBJECTS = $(OBJECTS_S) $(OBJECTS_C)
 
 KERNEL_ELF = $(BUILD_DIR)/mykernel.elf
 KERNEL_BIN = $(BUILD_DIR)/mykernel.bin
 ISO_IMAGE  = $(BUILD_DIR)/mykernel.iso
 VIRTUAL_DISK = $(BUILD_DIR)/vrdisk.img
-EXAMPLE_TEXT_FILE = README
 
 # Default target
 all: $(KERNEL_ELF) $(KERNEL_BIN)
@@ -34,15 +33,15 @@ all: $(KERNEL_ELF) $(KERNEL_BIN)
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-# Compile C files
+# Compile C files to object files
 $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Assemble .asm files
+# Assemble .asm files to object files
 $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.asm | $(BUILD_DIR)
 	$(AS) $(ASFLAGS) $< -o $@
 
-# Link kernel ELF
+# Link kernel ELF using linker script
 $(KERNEL_ELF): linker.ld $(OBJECTS)
 	$(LD) $(LDFLAGS) -T $< -o $@ $(OBJECTS)
 
@@ -64,14 +63,11 @@ iso: $(KERNEL_ELF)
 	grub-mkrescue --output=$(ISO_IMAGE) iso
 	rm -rf iso
 
-# Run with QEMU (after ISO is created)
+# Run with QEMU
 run: iso
 	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -hda $(VIRTUAL_DISK)
 
 # Run with QEMU in debug mode
-# enter gdb in wsl
-# gdb /mnt/c/Users/DorSh/Projects/MyOSv3/build/mykernel.elf
-# target remote :1234
 debug: CFLAGS += -g
 debug: iso
 	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -s -S -hda $(VIRTUAL_DISK)
@@ -79,5 +75,4 @@ debug: iso
 # Cleanup
 clean:
 	rm -rf $(BUILD_DIR)/*.o $(KERNEL_BIN) $(KERNEL_ELF) $(ISO_IMAGE) $(VIRTUAL_DISK)
-	qemu-img create $(VIRTUAL_DISK) 1G 
-#	dd if=$(EXAMPLE_TEXT_FILE) of=$(VIRTUAL_DISK) bs=512 seek=5 conv=notrunc
+	qemu-img create $(VIRTUAL_DISK) 1G

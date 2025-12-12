@@ -4,14 +4,22 @@
 #include "types.h"
 #include "description_tables.h"
 
-#define PAGE_SIZE 0x1000           // Size of a page/frame in bytes (4096)
-#define PAGE_MASK 0xFFFFF000
+//
+// Page directory/table entry flags (x86 32-bit)
+//
+#define PG_PRESENT      (1 << 0)
+#define PG_WRITABLE     (1 << 1)
+#define PG_USER         (1 << 2)
+#define PG_WRITE_THRU   (1 << 3)
+#define PG_NO_CACHE     (1 << 4)
+#define PG_ACCESSED     (1 << 5)
+#define PG_DIRTY        (1 << 6)
+#define PG_4MB          (1 << 7)   // huge page
+#define PG_GLOBAL       (1 << 8)
 
-#define PAGE_PRESENT    0b00001
-#define PAGE_READWRITE  0b00010
-#define PAGE_READ       0b00000
-#define PAGE_USER       0b00100
-#define PAGE_SUPERVISOR 0b00000
+#define PAGE_SIZE 0x1000
+
+#define PAGING_ENTRIES_SIZE 1024
 
 typedef struct page_struct {
     uint32_t present    : 1;  // Page present in memory
@@ -24,31 +32,43 @@ typedef struct page_struct {
 } page_t;
 
 typedef struct __attribute__ ((aligned (0x1000))) page_table_struct {
-    page_t entries[1024];
+    page_t entries[PAGING_ENTRIES_SIZE];
 } page_table_t;
 
 typedef struct __attribute__ ((aligned (0x1000))) page_directory_struct {
     /**
-       Array of pointers to pagetables.
+       Array of pointers to page-tables.
     **/
-    page_table_t *tables[1024];
+    page_table_t *tables[PAGING_ENTRIES_SIZE];
     /**
        Array of pointers to the pagetables above, but gives their *physical*
        location, for loading into the CR3 register.
     **/
-    uint32_t tablesPhysical[1024];
+    uint32_t tables_physical[PAGING_ENTRIES_SIZE];
 
     /**
-       The physical address of tablesPhysical. This comes into play
+       The physical address of physical_addr. This comes into play
        when we get our kernel heap allocated and the directory
        may be in a different location in virtual memory.
     **/
-    uint32_t physicalAddr;
+    uint32_t physical_addr;
 } page_directory_t;
 
-void initialize_paging();  // initialize the paging module
+//
+// Initialization
+//
+void paging_init();
 void switch_page_directory(page_directory_t * dir);  // switch to the new page directory
-void identity_map_kernal(); // identity maps the kernal, apply the changes to the kernal page directory
-void page_fault(registers_t* regs);  // the page fault handler
+void page_fault_handler(registers_t* regs);  // the page fault handler
+
+uint8_t paging_map_page(void* vaddr, void* paddr, uint32_t table_flags, uint32_t page_flags); /* 1 error, else 0 */
+void paging_unmap_page(void* vaddr);
+void* paging_get_mapping(void* vaddr);
+
+void* paging_alloc_page(uint64_t flags);
+void  paging_free_page(void* vaddr);
+
+void* paging_alloc_pages(size_t count, uint64_t flags);
+void  pagingm_free_pages(void* vaddr, size_t count);
 
 #endif // PAGING_H

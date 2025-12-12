@@ -5,16 +5,17 @@
 #include "print.h"
 
 // paging breaks down a linear address: | Table Entry (10 bits) | Page Entry (10 bits) | Offset (12 bits) |
-#define OFFSET(addr) (addr & 0b111111111111)
-#define PAGE(addr)   ((addr >> 12) & 0b1111111111)
-#define TABLE(addr)  ((addr >> 22) & 0b1111111111)
+#define PAGE_OFFSET(addr)  (addr & 0xFFF)
+#define PAGE_INDEX(addr)   ((addr >> 12) & 0x3FF)
+#define TABLE_INDEX(addr)  ((addr >> 22) & 0x3FF)
+#define PAGE_MASK(addr)    (addr & 0xFFFFF000) 
 
-extern uint32_t end; // end is defined in the linker script
-extern uint32_t heap_start;  // heap_start is defined in the linker script
-extern uint32_t placement_address; // defined in kheap.c
-static uint32_t last_address;
-static page_directory_t kernel_directory;
+__attribute__((aligned(0x1000))) page_directory_t kernel_page_directory;
+__attribute__((aligned(0x1000))) page_table_t kernel_page_tables[PAGING_ENTRIES_SIZE];
+
 static page_directory_t * current_directory;
+
+extern uint32_t __end;  // defined in the linker
 
 void static print_page_directory(page_directory_t* dir) {
     print_clean_screen();
@@ -22,7 +23,7 @@ void static print_page_directory(page_directory_t* dir) {
     print_const_string("Page Directory Table:\n");
     print_const_string("====================\n");
 
-    for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
+    for (uint32_t pd_idx = 0; pd_idx < PAGING_ENTRIES_SIZE; pd_idx++) {
         page_table_t* table = dir->tables[pd_idx];
         if (!table) continue; // skip empty tables
 
@@ -32,7 +33,7 @@ void static print_page_directory(page_directory_t* dir) {
         print_const_string("  PT Index | Present | R/W | User | Frame\n");
         print_const_string("  --------------------------------------\n");
 
-        for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
+        for (uint32_t pt_idx = 0; pt_idx < PAGING_ENTRIES_SIZE; pt_idx++) {
             page_t* entry = &table->entries[pt_idx];
 
             if (!entry->present) continue; // skip not-present pages
@@ -59,77 +60,42 @@ void static print_page_directory(page_directory_t* dir) {
     print_const_string("End of page directory\n");
 }
 
-void initialize_paging() {
-    last_address = (uint32_t)&end; // ceil to the next page
+void paging_init() {
+    /* remember currently vm = pm */
+    memset(&kernel_page_directory, 0, sizeof(page_directory_t));
+    memset(&kernel_page_tables, 0, sizeof(page_table_t) * PAGING_ENTRIES_SIZE);
 
-    register_interrupt_handler(14, page_fault);
+    /* there is a need to setup this before the use of paging_map_page */
+    current_directory = &kernel_page_directory;
+
+    /* link kernel page directory to her tables */
+    size_t table_count = TABLE_INDEX(__end) + 1; // +1, index to count
+    printf("Kernel's Page directory table count: %d\n", table_count);
+    
+    for (size_t t = 0; t < PAGING_ENTRIES_SIZE; t++) {
+        kernel_page_directory.tables[t] = (page_table_t *)(&(kernel_page_tables[t]));  // pointer in linear address space
+        kernel_page_directory.tables_physical[t] = (uint32_t)(&(kernel_page_tables[t])) | PG_WRITABLE | PG_PRESENT;  // physical address for CR3 / PDEs
+    }
+
+    /* identity map */
+    for (size_t addr = 0; addr <= __end; addr += PAGE_SIZE)
+        paging_map_page(addr, addr, PG_WRITABLE | PG_PRESENT, PG_WRITABLE | PG_PRESENT);
+    
+    
+    register_interrupt_handler(14, page_fault_handler);
+    switch_page_directory(&kernel_page_directory);
 }
 
 void switch_page_directory(page_directory_t * dir) {
     current_directory = dir;
-    asm volatile("mov %0, %%cr3":: "r"(&dir->tablesPhysical));
+    asm volatile("mov %0, %%cr3":: "r"(&(dir->tables_physical)));
     uint32_t cr0;
     asm volatile("mov %%cr0, %0": "=r"(cr0));
     cr0 |= 0x80000000; // Enable paging!
     asm volatile("mov %0, %%cr0":: "r"(cr0));
 }
 
-void identity_map_kernal() {
-    memset(&kernel_directory, 0, sizeof(page_directory_t));
-    
-    kernel_directory.physicalAddr = (uint32_t)&kernel_directory;
-    current_directory = &kernel_directory;
-
-    // allocate all the tables needed for the kernal in the start
-    size_t table_count = TABLE(last_address) + 1; // +1, index to count
-    for (size_t t = 0; t < table_count; t++) {
-        // allocate a page for a page table (return is physical address)
-        uint32_t phys = alloc_unfreable_phys(0x1000, 1);
-
-        // Clear the physical page so entries start as not-present
-        memset((void *)phys, 0, 0x1000);
-
-        // store the physical address and a usable virtual pointer (before paging these are identity)
-        kernel_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
-        kernel_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
-    }
-
-    // allocate all the tables needed for the kernal heap
-    table_count = TABLE(KHEAP_INITIAL_SIZE) + 1; // +1, index to count
-    for (size_t t = TABLE((uint32_t)(&heap_start)); t < TABLE((uint32_t)(&heap_start)) + table_count; t++) {
-        // allocate a page for a page table (return is physical address)
-        uint32_t phys = alloc_unfreable_phys(0x1000, 1);
-
-        // Clear the physical page so entries start as not-present
-        memset((void *)phys, 0, 0x1000);
-
-        // store the physical address and a usable virtual pointer (before paging these are identity)
-        kernel_directory.tables[t] = (page_table_t *)phys;        // pointer in linear address space
-        kernel_directory.tablesPhysical[t] = phys | 3;                // physical address for CR3 / PDEs
-    }
-
-    // create kernel identity map
-    for(uint32_t addr = 0; addr < placement_address; addr += PAGE_SIZE) {
-        page_table_t * table = kernel_directory.tables[TABLE(addr)];
-        table->entries[PAGE(addr)].present = 1;
-        table->entries[PAGE(addr)].rw = 1;
-        table->entries[PAGE(addr)].user = 0;
-        table->entries[PAGE(addr)].frame = addr >> 12; 
-    }
-
-    // create kernel heap identity map
-    for(uint32_t addr = (uint32_t)(&heap_start); addr < (uint32_t)(&heap_start) + KHEAP_INITIAL_SIZE; addr += PAGE_SIZE) {
-        page_table_t * table = kernel_directory.tables[TABLE(addr)];
-        table->entries[PAGE(addr)].present = 1;
-        table->entries[PAGE(addr)].rw = 1;
-        table->entries[PAGE(addr)].user = 0;
-        table->entries[PAGE(addr)].frame = addr >> 12; 
-    }
-
-    switch_page_directory(&kernel_directory);
-}
-
-void page_fault(registers_t* regs) {
+void page_fault_handler(registers_t* regs) {
     
     // A page fault has occurred.
     // The faulting address is stored in the CR2 register.
@@ -153,3 +119,49 @@ void page_fault(registers_t* regs) {
     PANIC("Page fault");
 }
 
+uint8_t paging_map_page(void* vaddr, void* paddr, uint32_t table_flags, uint32_t page_flags) {
+    uint32_t temp_addr;
+
+    /* mark paddr if not marked already */
+    pmm_alloc_frame_addr(PAGE_MASK((uint32_t)paddr));
+
+    /* check if there is a table for vaddr */
+    page_table_t * table = current_directory->tables[TABLE_INDEX((uint32_t)vaddr)];
+
+    if (table == NULL)  { /* we need to allocate a new table for this vaddr */
+        /* NOTE: the vheap and the kheap is mapped to the same place in memory, a more general approch is needed */
+        uint32_t vpaddr_table;
+
+        vpaddr_table = kalloc(PAGE_SIZE * 2); /* kalloc may return an non page aligned address, so double memory is needed */
+
+        if (kalloc == NULL) return 1;  /* no memory in heap, error */
+
+        /* PAGE_MASK(vpaddr_table) + PAGE_SIZE is needed because we want to round to the upper page */
+        current_directory->tables[TABLE_INDEX((uint32_t)vaddr)] = PAGE_MASK(vpaddr_table) + PAGE_SIZE;
+        current_directory->tables_physical[TABLE_INDEX((uint32_t)vaddr)] = (PAGE_MASK(vpaddr_table) + PAGE_SIZE) | table_flags;
+    }
+
+    table->entries[PAGE_INDEX((uint32_t)paddr)].present = page_flags & 0x1;
+    table->entries[PAGE_INDEX((uint32_t)paddr)].rw = page_flags & 0x2;
+    table->entries[PAGE_INDEX((uint32_t)paddr)].user = page_flags & 0x4;
+    table->entries[PAGE_INDEX((uint32_t)paddr)].accessed = page_flags & 0x8;
+    table->entries[PAGE_INDEX((uint32_t)paddr)].dirty = page_flags & 0x10;
+    table->entries[PAGE_INDEX((uint32_t)paddr)].unused = page_flags & 0xFE0;
+    table->entries[PAGE_INDEX((uint32_t)paddr)].frame = (uint32_t)paddr >> 12;
+
+    return 0;
+}
+
+void paging_unmap_page(void* vaddr) {
+    /* check if there is a table for vaddr */
+    /* FIX: ther may be a memory leak, since we don't free the tables */
+    page_table_t * t = current_directory->tables[TABLE_INDEX((uint32_t)vaddr)];
+
+    if (t == NULL) return; /* no need to unmap */
+
+    /* unmap the page */
+    page_t * p = &(current_directory->tables[TABLE_INDEX((uint32_t)vaddr)]->entries[PAGE_INDEX((uint32_t)vaddr)]);
+    memset(p, 0, sizeof(page_t));
+
+    return 0;
+}

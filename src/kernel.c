@@ -16,7 +16,7 @@
 void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        PANIC("Error: multiboot magic number unknown")
+        PANIC("Error: multiboot magic number unknown");
     }
 
     tty_t tty;
@@ -34,10 +34,8 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     initialize_timer(10); // Initialize timer to 10Hz
     printf("Timer initialized.\n");
 
-    initialize_heap(); // initialize heap
-
-    initialize_paging(); // init paging module
-    identity_map_kernal();  // generate identity map and load table
+    pmm_init();  // initialize physical memory manager
+    paging_init(); // init paging module
 
     initialize_keyboard_driver();  // initialize the keyboard driver
 
@@ -45,8 +43,6 @@ void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_m
     asm volatile ("sti");
 
     initiate_ata_driver();  // initiate the driver
-
-    pmm_init();  // initialize physical memory manager
-
+    
     while (1);
 }

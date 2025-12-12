@@ -3,7 +3,7 @@ OUTPUT_FORMAT(elf32-i386)
 OUTPUT_ARCH(i386:i386)
 
 STACK_SIZE = 0x200000;      /* 2 MiB  */
-HEAP_SIZE  = 0x10000000;    /* 200 MiB  */
+HEAP_SIZE  = 0x100000;      /* 1 MiB  */
 
 SECTIONS
 {
