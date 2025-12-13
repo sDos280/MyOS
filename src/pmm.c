@@ -58,7 +58,7 @@ static void * get_last_free_frame() {
         if (bit_field[b] != 0xFFFFFFFF)
             for (size_t i = 0; i < 32; i++)
                 if (!(bit_field[b] & (1 << i))) /* frame is free */
-                    return FRAME_SIZE * (32 * b + i);
+                    return (void *)(FRAME_SIZE * (32 * b + i));
     
     return NULL;
 }
@@ -85,7 +85,7 @@ void pmm_free_frames(void* paddr, size_t count) {
     paddr = (void *)FRAME_ALIGN((uint32_t)paddr); /* make sure addr is frame aligned */
 
     for (size_t i = 0; i < count; i++) { /* allocate all of them */
-        caddr = paddr + i * FRAME_SIZE;
-        pmm_free_frame(caddr);
+        caddr = (uint32_t)(paddr + i * FRAME_SIZE);
+        pmm_free_frame((void *)caddr);
     }
 }
