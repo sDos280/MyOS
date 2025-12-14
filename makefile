@@ -68,6 +68,9 @@ run: iso
 	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -hda $(VIRTUAL_DISK)
 
 # Run with QEMU in debug mode
+# enter gdb in wsl
+# gdb /mnt/c/Users/DorSh/Projects/MyOSv3/build/mykernel.elf
+# target remote :1234
 debug: CFLAGS += -g
 debug: iso
 	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -s -S -hda $(VIRTUAL_DISK)

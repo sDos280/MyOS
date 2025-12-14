@@ -1,4 +1,5 @@
 #include "paging.h"
+#include "pmm.h"
 #include "utils.h"
 #include "panic.h"
 #include "kheap.h"
@@ -15,7 +16,7 @@ __attribute__((aligned(0x1000))) page_table_t kernel_page_tables[PAGING_ENTRIES_
 
 static page_directory_t * current_directory;
 
-extern uint32_t __end;  // defined in the linker
+extern uint32_t __kernel_end;  // defined in the linker
 
 void static print_page_directory(page_directory_t* dir) {
     print_clean_screen();
@@ -69,7 +70,7 @@ void paging_init() {
     current_directory = &kernel_page_directory;
 
     /* link kernel page directory to her tables */
-    size_t table_count = TABLE_INDEX(__end) + 1; // +1, index to count
+    size_t table_count = TABLE_INDEX(__kernel_end) + 1; // +1, index to count
     printf("Kernel's Page directory table count: %d\n", table_count);
     
     for (size_t t = 0; t < PAGING_ENTRIES_SIZE; t++) {
@@ -78,7 +79,7 @@ void paging_init() {
     }
 
     /* identity map */
-    for (size_t addr = 0; addr <= __end; addr += PAGE_SIZE)
+    for (size_t addr = 0; addr <= __kernel_end; addr += PAGE_SIZE)
         paging_map_page(addr, addr, PG_WRITABLE | PG_PRESENT, PG_WRITABLE | PG_PRESENT);
     
     
@@ -123,7 +124,7 @@ uint8_t paging_map_page(void* vaddr, void* paddr, uint32_t table_flags, uint32_t
     uint32_t temp_addr;
 
     /* mark paddr if not marked already */
-    pmm_alloc_frame_addr(PAGE_MASK((uint32_t)paddr));
+    pmm_alloc_frame_addr((void *)PAGE_MASK((uint32_t)paddr));
 
     /* check if there is a table for vaddr */
     page_table_t * table = current_directory->tables[TABLE_INDEX((uint32_t)vaddr)];
@@ -132,12 +133,12 @@ uint8_t paging_map_page(void* vaddr, void* paddr, uint32_t table_flags, uint32_t
         /* NOTE: the vheap and the kheap is mapped to the same place in memory, a more general approch is needed */
         uint32_t vpaddr_table;
 
-        vpaddr_table = kalloc(PAGE_SIZE * 2); /* kalloc may return an non page aligned address, so double memory is needed */
+        vpaddr_table = (uint32_t)kalloc(PAGE_SIZE * 2); /* kalloc may return an non page aligned address, so double memory is needed */
 
         if (kalloc == NULL) return 1;  /* no memory in heap, error */
 
         /* PAGE_MASK(vpaddr_table) + PAGE_SIZE is needed because we want to round to the upper page */
-        current_directory->tables[TABLE_INDEX((uint32_t)vaddr)] = PAGE_MASK(vpaddr_table) + PAGE_SIZE;
+        current_directory->tables[TABLE_INDEX((uint32_t)vaddr)] = (void *)(PAGE_MASK(vpaddr_table) + PAGE_SIZE);
         current_directory->tables_physical[TABLE_INDEX((uint32_t)vaddr)] = (PAGE_MASK(vpaddr_table) + PAGE_SIZE) | table_flags;
     }
 
@@ -162,6 +163,4 @@ void paging_unmap_page(void* vaddr) {
     /* unmap the page */
     page_t * p = &(current_directory->tables[TABLE_INDEX((uint32_t)vaddr)]->entries[PAGE_INDEX((uint32_t)vaddr)]);
     memset(p, 0, sizeof(page_t));
-
-    return 0;
 }

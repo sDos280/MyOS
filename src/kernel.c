@@ -13,7 +13,7 @@
 #include "pmm.h"
 
 // Entry point called by GRUB
-void kernelMain(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
+void kernel_main(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
 {
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         PANIC("Error: multiboot magic number unknown");

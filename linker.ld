@@ -49,6 +49,5 @@ SECTIONS
         . = ALIGN(4096);
     }
 
-    /* Marks real end of the used address space */
-    end = .; _end = .; __end = .;
+    __kernel_end = .;
 }

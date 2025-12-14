@@ -1,10 +1,9 @@
-; filepath: c:\Users\DorSh\Projects\MyOSv2\src\loader.asm
 %define MAGIC      0x1badb002
 %define FLAGS      (1<<0 | 1<<1)
 %define CHECKSUM   -(MAGIC + FLAGS)
 
 extern stack_end
-extern kernelMain
+extern kernel_main
 global loader
 
 section .multiboot
@@ -19,7 +18,7 @@ loader:
     mov esp, stack_end      ; set valid stack pointer
     push eax                ; multiboot_magic
     push ebx                ; multiboot_structure
-    call kernelMain
+    call kernel_main
 
 _stop:
     cli  ; disable interrupts

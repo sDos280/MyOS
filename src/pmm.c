@@ -34,7 +34,7 @@ void* pmm_alloc_frames_addr(void * paddr, size_t count) {
     paddr = (void *)FRAME_ALIGN((uint32_t)paddr); /* make sure addr is frame aligned */
 
     for (size_t i = 0; i < count; i++) { /* make sure all addr and address are not used */
-        caddr = paddr + i * FRAME_SIZE;
+        caddr = (uint32_t)(paddr + i * FRAME_SIZE);
 
         bit_field_index = FRAME_BIT_FIELD_INDEX((uint32_t)caddr);
         bit_field_inner_index = FRAME_BIT_FIELD_INNER_INDEX((uint32_t)caddr);
@@ -46,8 +46,8 @@ void* pmm_alloc_frames_addr(void * paddr, size_t count) {
     /* all frames are allowed to be allocated */
 
     for (size_t i = 0; i < count; i++) { /* allocate all of them */
-        caddr = paddr + i * FRAME_SIZE;
-        pmm_alloc_frame_addr(caddr);
+        caddr = (uint32_t)(paddr + i * FRAME_SIZE);
+        pmm_alloc_frame_addr((void *)caddr);
     }
 
     return paddr;
