@@ -24,8 +24,8 @@
 
 #define CASCADE_IRQ 2
 
+#include "io/port.h"
 #include "types.h"
-#include "port.h"
 
 void pic_sendEOI(uint8_t irq); // Send end of interrupt signal to PIC
 void pic_remap(); // Remap the PIC

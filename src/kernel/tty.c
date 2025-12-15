@@ -1,5 +1,5 @@
-#include "tty.h"
-#include "screen.h"
+#include "kernel/tty.h"
+#include "kernel/screen.h"
 #include "utils.h"
 
 void tty_initialize(tty_t * tty) {

@@ -1,4 +1,4 @@
-#include "pmm.h"
+#include "mm/pmm.h"
 #include "utils.h"
 
 #define FRAME_ALIGN(addr) (addr & ~0xFFF)

@@ -1,8 +1,8 @@
 #ifndef PAGING_H
 #define PAGING_H
 
+#include "kernel/description_tables.h"
 #include "types.h"
-#include "description_tables.h"
 
 //
 // Page directory/table entry flags (x86 32-bit)

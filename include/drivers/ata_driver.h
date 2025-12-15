@@ -1,8 +1,8 @@
 #ifndef ATA_DRIVER_H
 #define ATA_DRIVER_H
 
+#include "mm/paging.h"
 #include "types.h"
-#include "paging.h"
 
 // Primary bus
 #define ATA_PRIMARY_IO       0x1F0

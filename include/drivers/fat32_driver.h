@@ -1,8 +1,8 @@
 #ifndef FAT32_H
 #define FAT32_H
 
+#include "drivers/ata_driver.h"
 #include "types.h"
-#include "ata_driver.h"
 
 // FAT32 signature values
 #define FAT32_BOOT_SIGNATURE      0x29

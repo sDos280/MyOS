@@ -1,9 +1,9 @@
-#include "paging.h"
-#include "pmm.h"
+#include "kernel/print.h"
+#include "kernel/panic.h"
+#include "mm/paging.h"
+#include "mm/pmm.h"
+#include "mm/kheap.h"
 #include "utils.h"
-#include "panic.h"
-#include "kheap.h"
-#include "print.h"
 
 // paging breaks down a linear address: | Table Entry (10 bits) | Page Entry (10 bits) | Offset (12 bits) |
 #define PAGE_OFFSET(addr)  (addr & 0xFFF)

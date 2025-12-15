@@ -1,5 +1,5 @@
-#include "kheap.h"
-#include "print.h"
+#include "kernel/print.h"
+#include "mm/kheap.h"
 
 extern uint32_t __kernel_end; // end is defined in the linker scrip
 extern uint32_t heap_start;  // heap_start is defined in the linker script

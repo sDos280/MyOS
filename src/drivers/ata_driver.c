@@ -1,9 +1,9 @@
-#include "ata_driver.h"
-#include "port.h"
-#include "print.h"
+#include "kernel/print.h"
+#include "mm/kheap.h"
+#include "drivers/ata_driver.h"
+#include "io/port.h"
+#include "io/pic.h"
 #include "utils.h"
-#include "pic.h"
-#include "kheap.h"
 
 /* =========================================================
                         MACROS

@@ -14,14 +14,14 @@ SECTIONS
 
     .text :
     {
-        code = .; _code = .; __code = .;
+        __code_start = .;
         *(.text)
         . = ALIGN(4096);
     }
 
     .data :
     {
-        data = .; _data = .; __data = .;
+        __data_start = .;
         *(.data)
         *(.rodata)
         . = ALIGN(4096);
@@ -29,8 +29,9 @@ SECTIONS
 
     .bss :
     {
-        _bss = .;
+        __bss_start = .;
         *(.bss)
+        *(COMMON*)
 
         /* reserve 2MiB stack inside BSS at low VA */
         stack_start = .;

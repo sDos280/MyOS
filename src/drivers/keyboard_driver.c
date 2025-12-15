@@ -1,8 +1,9 @@
-#include "keyboard_driver.h"
-#include "port.h"
-#include "print.h"
+#include "kernel/print.h"
+#include "kernel/tty.h"
+#include "drivers/keyboard_driver.h"
+#include "io/port.h"
 #include "utils.h"
-#include "tty.h"
+
 
 // Each index is the PS/2 Set 1 scan code
 // 0xFF = unmapped / unused.

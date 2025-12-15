@@ -1,16 +1,17 @@
-#include "types.h"
-#include "description_tables.h"
-#include "print.h"
-#include "timer.h"
-#include "paging.h"
-#include "multiboot.h"
-#include "kheap.h"
-#include "panic.h"
-#include "keyboard_driver.h"
+
+#include "kernel/description_tables.h"
+#include "kernel/print.h"
+#include "kernel/timer.h"
+#include "kernel/panic.h"
+#include "mm/paging.h"
+#include "mm/kheap.h"
+#include "mm/pmm.h"
+#include "drivers/keyboard_driver.h"
+#include "drivers/ata_driver.h"
 #include "multiboot_helper.h"
-#include "ata_driver.h"
+#include "multiboot.h"
 #include "utils.h"
-#include "pmm.h"
+#include "types.h"
 
 // Entry point called by GRUB
 void kernel_main(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
@@ -42,7 +43,7 @@ void kernel_main(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_
     // enable interrupts
     asm volatile ("sti");
 
-    initiate_ata_driver();  // initiate the driver
+    initiate_ata_driver();  // initiate the ata driver
     
     while (1);
 }

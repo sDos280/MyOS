@@ -1,7 +1,7 @@
-#include "description_tables.h"
+#include "kernel/description_tables.h"
+#include "kernel/print.h"
+#include "io/pic.h"
 #include "utils.h"
-#include "pic.h"
-#include "print.h"
 
 gdt_entry_t gdt_entries[GDT_ENTRIES];
 descriptor_ptr_t gdt_ptr;

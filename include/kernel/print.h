@@ -1,8 +1,8 @@
 #ifndef PRINT_H
 #define PRINT_H
 
+#include "kernel/tty.h"
 #include "types.h"
-#include "tty.h"
 
 void print_set_tty(tty_t * tty);
 void print_clean_screen();

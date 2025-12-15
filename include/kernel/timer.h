@@ -1,8 +1,8 @@
 #ifndef TIMER_H
 #define TIMER_H
 
+#include "kernel/description_tables.h"
 #include "types.h"
-#include "description_tables.h"
 
 #define TIMER_DATA_0_PORT 0x40
 #define TIMER_DATA_1_PORT 0x41

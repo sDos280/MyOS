@@ -1,5 +1,5 @@
-#include "tty.h"
-#include "print.h"
+#include "kernel/tty.h"
+#include "kernel/print.h"
 #include "arg.h"
 
 tty_t * ctty; /* current tty */

@@ -1,6 +1,6 @@
-#include "timer.h"
-#include "print.h"
-#include "port.h"
+#include "kernel/timer.h"
+#include "kernel/print.h"
+#include "io/port.h"
 
 static uint32_t used_frequency = 0;
 static uint32_t base_frequency = 1193180; // The PIT runs at 1.19318 MHz

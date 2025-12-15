@@ -1,7 +1,7 @@
 #ifndef KEYBOARD_DRIVER_H
 #define KEYBOARD_DRIVER_H
 
-#include "description_tables.h"
+#include "kernel/description_tables.h"
 
 #define KEY_RELEASED 0
 #define KEY_PRESSED  1
