@@ -80,7 +80,7 @@ void paging_init() {
 
     /* identity map */
     for (size_t addr = 0; addr <= __kernel_end; addr += PAGE_SIZE)
-        paging_map_page(addr, addr, PG_WRITABLE | PG_PRESENT, PG_WRITABLE | PG_PRESENT);
+        paging_map_page((void *)addr, (void *)addr, PG_WRITABLE | PG_PRESENT, PG_WRITABLE | PG_PRESENT);
     
     
     register_interrupt_handler(14, page_fault_handler);

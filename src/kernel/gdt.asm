@@ -16,3 +16,8 @@ flush_gdt:
     mov ss, ax
 
     ret                          ; Return to C caller
+
+; -----------------------------------------------------------------------------
+; SECTION (note) - Inform the linker that the stack does not need to be executable
+; -----------------------------------------------------------------------------
+section .note.GNU-stack
