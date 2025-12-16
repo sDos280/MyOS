@@ -25,9 +25,9 @@ VIRTUAL_DISK = $(BUILD_DIR)/vrdisk.img
 # =========================
 # Flags
 # =========================
-CFLAGS  = -m32 -nostdlib -fno-builtin -fno-exceptions -fno-leading-underscore -I$(INCLUDE_DIR)
+CFLAGS  = -m32 -ffreestanding -fno-stack-protector -fno-builtin -fno-exceptions -fno-leading-underscore -I$(INCLUDE_DIR)
 ASFLAGS = -f elf32
-LDFLAGS = -m elf_i386
+LDFLAGS = -m elf_i386 -nostdlib
 
 # =========================
 # Sources (1-level deep)
