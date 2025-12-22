@@ -8,12 +8,25 @@ SECTIONS
     /* Note that we page-align the sections. */
 
     __kernel_start = .;
+
     .multiboot.data : {
         KEEP(*(.multiboot.data))
     }
 
     .multiboot.text : {
         KEEP(*(.multiboot.text))
+    }
+
+	.multiboot.bss : {
+        KEEP(*(.multiboot.bss))
+    }
+
+	.boot.text : {
+        KEEP(*(.boot.text))
+    }
+
+	.boot.bss : {
+        KEEP(*(.boot.bss))
     }
 
     . += 0xC0000000;
@@ -34,7 +47,10 @@ SECTIONS
     {
         *(COMMON)
         *(.bss)
+		*(.bootstrap_stack*)
     }
+
+	__kernel_end_no_heap = .;
 
     /* -------- Heap Section (200Mbi) at end -------- */
     .heap :
