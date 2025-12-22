@@ -1,9 +1,9 @@
 # =========================
 # Tools
 # =========================
-CC    = gcc
-AS    = nasm
-LD    = ld
+CC    = i686-elf-gcc
+AS    = i686-elf-as
+LD    = i686-elf-ld
 QEMU  = qemu-system-i386
 
 # =========================
@@ -25,18 +25,19 @@ VIRTUAL_DISK = $(BUILD_DIR)/vrdisk.img
 # =========================
 # Flags
 # =========================
-CFLAGS  = -m32 -ffreestanding -fno-stack-protector -fno-builtin -fno-exceptions -fno-leading-underscore -I$(INCLUDE_DIR)
-ASFLAGS = -f elf32
+CFLAGS  = -m32 -fno-pic -ffreestanding -fno-stack-protector -fno-builtin -fno-exceptions -fno-leading-underscore -I$(INCLUDE_DIR)
+ASFLAGS = -32
 LDFLAGS = -m elf_i386 -nostdlib
 
 # =========================
 # Sources (1-level deep)
 # =========================
-SOURCES_C := $(wildcard $(SOURCE_DIR)/*.c $(SOURCE_DIR)/*/*.c)
-SOURCES_S := $(wildcard $(SOURCE_DIR)/*.asm $(SOURCE_DIR)/*/*.asm)
+SOURCES_C := $(shell find $(SOURCE_DIR) -name '*.c')
+SOURCES_S := $(shell find $(SOURCE_DIR) -name '*.S' -o -name '*.asm')
 
-OBJECTS_C := $(patsubst $(SOURCE_DIR)/%.c,  $(BUILD_DIR)/%.o, $(SOURCES_C))
-OBJECTS_S := $(patsubst $(SOURCE_DIR)/%.asm,$(BUILD_DIR)/%.o, $(SOURCES_S))
+OBJECTS_C := $(patsubst $(SOURCE_DIR)/%, $(BUILD_DIR)/%, $(SOURCES_C:.c=.o))
+OBJECTS_S := $(patsubst $(SOURCE_DIR)/%, $(BUILD_DIR)/%, $(SOURCES_S:.S=.o))
+OBJECTS_S := $(patsubst $(SOURCE_DIR)/%, $(BUILD_DIR)/%, $(OBJECTS_S:.asm=.o))
 OBJECTS   := $(OBJECTS_S) $(OBJECTS_C)
 
 # =========================
@@ -54,7 +55,7 @@ $(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c
 # =========================
 # Assemble ASM files
 # =========================
-$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.asm
+$(BUILD_DIR)/%.o: $(SOURCE_DIR)/%.S
 	@mkdir -p $(dir $@)
 	$(AS) $(ASFLAGS) $< -o $@
 
@@ -69,7 +70,7 @@ $(KERNEL_ELF): linker.ld $(OBJECTS)
 # Raw binary
 # =========================
 $(KERNEL_BIN): $(KERNEL_ELF)
-	objcopy -O binary $< $@
+	i686-elf-objcopy -O binary $< $@
 
 # =========================
 # ISO
@@ -77,7 +78,7 @@ $(KERNEL_BIN): $(KERNEL_ELF)
 iso: $(KERNEL_ELF)
 	@mkdir -p $(ISO_DIR)/boot
 	cp $(KERNEL_ELF) $(ISO_DIR)/boot/mykernel.elf
-	grub-mkrescue --output=$(ISO_IMAGE) $(ISO_DIR)
+	grub-mkrescue -o $(ISO_IMAGE) $(ISO_DIR)
 
 # =========================
 # Run
@@ -88,7 +89,7 @@ run: iso $(VIRTUAL_DISK)
 # =========================
 # Debug
 # enter gdb in wsl
-# gdb /mnt/c/Users/DorSh/Projects/MyOSv3/build/mykernel.elf
+# gdb /mnt/c/Users/.../Projects/MyOSv3/build/mykernel.elf
 # target remote :1234
 # =========================
 debug: CFLAGS += -g

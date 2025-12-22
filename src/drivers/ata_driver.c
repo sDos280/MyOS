@@ -395,6 +395,8 @@ uint8_t ata_flush_cache(ata_drive_t *drive) {
  *   - Sends EOI to the :contentReference[oaicite:0]{index=0}
  */
 static void ata_response_handler(registers_t *regs) {
+    uint8_t st;
+
     if (!ata_request.pending) {
         printf("ATA: IRQ triggered but no request was pending!\n");
         goto irq_end;
@@ -414,7 +416,7 @@ static void ata_response_handler(registers_t *regs) {
             break;
         case ATA_CMD_FLUSH:
             // FLUSH does not read/write sectors. We only check flags.
-            uint8_t st = inb(ata_request.device_id.io_base + ATA_REG_STATUS);
+            st = inb(ata_request.device_id.io_base + ATA_REG_STATUS);
             if (st & ATA_SR_ERR) ata_responce.error = 1;
             break;
         default:

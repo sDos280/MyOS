@@ -2,7 +2,7 @@
 #include "mm/kheap.h"
 
 extern uint32_t __kernel_end; // end is defined in the linker scrip
-extern uint32_t heap_start;  // heap_start is defined in the linker script
+extern uint32_t __heap_start;  // heap_start is defined in the linker script
 uint32_t placement_address;
 heap_t kernel_heap;   
 
@@ -64,7 +64,7 @@ void print_heap_status() {
 void initialize_heap(){
     placement_address = (uint32_t)&__kernel_end;
 
-    heap_chunk_t * first_chunk = (heap_chunk_t *)(&heap_start);
+    heap_chunk_t * first_chunk = (heap_chunk_t *)(&__heap_start);
     first_chunk->is_used = CHUNK_NOT_IN_US;
     first_chunk->size = KHEAP_INITIAL_SIZE - sizeof(heap_chunk_t);
     first_chunk->previous = NULL;
