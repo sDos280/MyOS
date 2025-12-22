@@ -58,7 +58,8 @@ skip_kernel_mapping:
     add edi, 4
     dec ecx
     jnz page_mapping_loop
-    
+
+after_loop_kernel_maping:
     // VGA text buffer
     mov dword ptr [boot_page_table1 - 0xC0000000 + 1023*4], 0x000B8003
 
