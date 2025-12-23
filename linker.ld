@@ -30,6 +30,9 @@ SECTIONS
     }
 
     . += 0xC0000000;
+
+	__kernel_start_v = .;
+
     /* Add a symbol that indicates the start address of the kernel. */
     .text ALIGN (4K) : AT (ADDR (.text) - 0xC0000000)
     {
