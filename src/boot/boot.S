@@ -58,8 +58,8 @@ jump_to_higher_memory:
     lea ebp, [stack_top]
     lea esp, [stack_top]
 
-    push ebx
     push eax
+    push ebx
     
     call kernel_main
 

@@ -1,71 +1,107 @@
 #include "boot/boot_ipl.h"
-#include "boot/boot_screen.h"
 #include "boot/boot_utils.h"
 
-// paging breaks down a linear address: | Table Entry (10 bits) | Page Entry (10 bits) | Offset (12 bits) |
-#define PAGE_OFFSET(addr)  (addr & 0xFFF)
-#define PAGE_INDEX(addr)   ((addr >> 12) & 0x3FF)
-#define TABLE_INDEX(addr)  ((addr >> 22) & 0x3FF)
-#define PAGE_MASK(addr)    (addr & 0xFFFFF000) 
+/*
+ * 32-bit paging address layout:
+ * | Page Directory Index (10) | Page Table Index (10) | Offset (12) |
+ */
+#define PAGE_OFFSET(addr)   ((addr) & 0xFFF)
+#define PAGE_TABLE_INDEX(a) (((a) >> 12) & 0x3FF)
+#define PAGE_DIR_INDEX(a)   (((a) >> 22) & 0x3FF)
+#define PAGE_ALIGN(addr)   ((addr) & 0xFFFFF000)
 
-__attribute__((aligned(0x1000))) __attribute__ ((section(".boot.bss"))) page_directory_t kernel_temp_page_directory;
-__attribute__((aligned(0x1000))) __attribute__ ((section(".boot.bss"))) page_table_t kernel_temp_page_tables[PAGING_ENTRIES_SIZE];
+/*
+ * Temporary paging structures used during early boot.
+ * They live in .boot.bss so they are identity-mapped and zero-initialized.
+ */
+__attribute__((aligned(0x1000), section(".boot.bss")))
+page_directory_t boot_page_directory;
 
+__attribute__((aligned(0x1000), section(".boot.bss")))
+page_table_t boot_page_tables[PAGING_ENTRIES_SIZE];
 
-static __attribute__((section(".boot.data"))) const char boot_fmt[] = "vaddr: %p, paddr: %p\n";
+/* Symbols provided by the linker */
+extern uint32_t __kernel_start;
+extern uint32_t __kernel_start_v;
+extern uint32_t __kernel_end_no_heap;
+extern uint32_t __kernel_end;
 
-extern uint32_t __kernel_start;  // defined in the linker
-extern uint32_t __kernel_end_no_heap;  // defined in the linker
-extern uint32_t __kernel_end;  // defined in the linker
-extern uint32_t __kernel_start_v; // defined in the linker
+/*
+ * Maps a single 4KB page.
+ * Assumes the page table already exists.
+ */
+static uint8_t
+boot_map_page(page_directory_t *pd, void *vaddr, void *paddr, uint32_t flags)
+{
+    uint32_t va = (uint32_t)vaddr;
+    uint32_t pa = (uint32_t)paddr;
 
-uint8_t boot_map_page(page_directory_t* d, void* vaddr, void* paddr, uint32_t page_flags) {
-    /* Note: the table must be allocated */
-    page_table_t * table = d->tables[TABLE_INDEX((uint32_t)vaddr)];
+    page_table_t *pt = pd->tables[PAGE_DIR_INDEX(va)];
+    page_entry_t * entry = &pt->entries[PAGE_TABLE_INDEX(va)];
 
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].present = page_flags & 0x1;
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].rw = page_flags & 0x2;
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].user = page_flags & 0x4;
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].accessed = page_flags & 0x8;
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].dirty = page_flags & 0x10;
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].unused = page_flags & 0xFE0;
-    table->entries[PAGE_INDEX((uint32_t)vaddr)].frame = (uint32_t)paddr >> 12;
+    entry->present  = flags & PG_PRESENT;
+    entry->rw       = flags & PG_WRITABLE;
+    entry->user     = flags & PG_USER;
+    entry->accessed = flags & PG_ACCESSED;
+    entry->dirty    = flags & PG_DIRTY;
+    entry->unused   = (flags & 0xFE0) >> 5;
+    entry->frame    = pa >> 12;
 
     return 0;
 }
 
-void boot_ipl(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic) {
-    /* remember currently vm = pm */
+/*
+ * Initial Paging Loader (IPL)
+ * Sets up identity mapping + higher-half kernel mapping,
+ * then enables paging.
+ */
+void boot_ipl(multiboot_info_t *mb_info, uint32_t mb_magic) {
+    // At this point: virtual == physical
     
-    /* set the tables and directories to 0 */
-    boot_memset(&kernel_temp_page_directory, 0, sizeof(page_directory_t));
-    boot_memset(&kernel_temp_page_tables, 0, sizeof(page_table_t) * PAGING_ENTRIES_SIZE);
+    /* Clear paging structures */
+    boot_memset(&boot_page_directory, 0, sizeof(page_directory_t));
+    boot_memset(boot_page_tables, 0,
+                sizeof(page_table_t) * PAGING_ENTRIES_SIZE);
 
-    uint32_t kernel_start = (uint32_t)&__kernel_start;
-    int32_t  kernel_table_index = -1;  /* start with -1 so update the tables would update */
+    /*
+     * Initialize page directory entries.
+     * Linear pointers are used before paging,
+     * physical addresses are written to PDEs.
+     */
+    boot_page_directory.physical_addr = (uint32_t)&boot_page_directory;
 
-    /* setup all kernel's table directory general data */
-    kernel_temp_page_directory.physical_addr = (uint32_t)&kernel_temp_page_directory;
-    for (size_t t = 0; t < PAGING_ENTRIES_SIZE; t++) {
-        kernel_temp_page_directory.tables[t] = (page_table_t *)(&(kernel_temp_page_tables[t]));  // pointer in linear address space
-        kernel_temp_page_directory.tables_physical[t] = (uint32_t)(&(kernel_temp_page_tables[t])) | PG_WRITABLE | PG_PRESENT;  // physical address for CR3 / PDEs
+    for (size_t i = 0; i < PAGING_ENTRIES_SIZE; i++) {
+        boot_page_directory.tables[i] =  &boot_page_tables[i];
+
+        boot_page_directory.tables_physical[i] = 
+            (uint32_t)&boot_page_tables[i] | PG_PRESENT | PG_WRITABLE;
     }
 
-    /* setup lower half identity map paging */
-    uint32_t kernel_end_no_heap_lower = (uint32_t)(&__kernel_end_no_heap) - 0xC0000000;
+    /*
+     * Identity map the lower memory region.
+     */
+    uint32_t kernel_end_phys = (uint32_t)&__kernel_end_no_heap - 0xC0000000;
 
-    for (uint32_t paddr = 0; paddr < kernel_end_no_heap_lower; paddr += PAGE_SIZE) 
-        boot_map_page(&kernel_temp_page_directory, (void *)paddr, (void *)paddr, PG_WRITABLE | PG_PRESENT);
+    for (uint32_t addr = 0; addr < kernel_end_phys; addr += PAGE_SIZE) 
+        boot_map_page(&boot_page_directory, (void *)addr, (void *)addr, PG_PRESENT | PG_WRITABLE);
+    
 
-    /* setup higher half paging */
-    for (uint32_t vaddr = &__kernel_start_v; vaddr < (uint32_t)&__kernel_end; vaddr += PAGE_SIZE) {
-        boot_map_page(&kernel_temp_page_directory, (void *)vaddr, (void *)(vaddr - 0xC0000000), PG_WRITABLE | PG_PRESENT);
-    }
+    /*
+     * Map kernel into the higher half (0xC0000000+)
+     */
+    for (uint32_t vaddr = (uint32_t)&__kernel_start_v; vaddr < (uint32_t)&__kernel_end; vaddr += PAGE_SIZE) 
+            boot_map_page(&boot_page_directory, (void *)vaddr, (void *)(vaddr - 0xC0000000), PG_PRESENT | PG_WRITABLE);
+    
+    /*
+     * Load page directory and enable paging
+     */
+    asm volatile("mov %0, %%cr3"
+                 :
+                 : "r"(boot_page_directory.tables_physical)
+                 : "memory");
 
-    /* switch directory */
-    asm volatile("mov %0, %%cr3":: "r"(&(kernel_temp_page_directory.tables_physical)));
     uint32_t cr0;
-    asm volatile("mov %%cr0, %0": "=r"(cr0));
-    cr0 |= 0x80000000; // Enable paging!
-    asm volatile("mov %0, %%cr0":: "r"(cr0));
+    asm volatile("mov %%cr0, %0" : "=r"(cr0));
+    cr0 |= 0x80000000;  /* PG bit */
+    asm volatile("mov %0, %%cr0" :: "r"(cr0));
 }
