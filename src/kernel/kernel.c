@@ -55,5 +55,40 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     ata_driver_init();  // initiate the ata driver
     printf("Ata driver initialized.\n");
     
-    while (1);
+    printf("\n\n=== kalloc/kfree BASIC test ===\n\n");
+
+    print_heap_status();
+
+    void* a = kalloc(64);
+    void* b = kalloc(128); 
+    void* c = kalloc(256);
+
+    printf("\nAllocated a=%p b=%p c=%p\n\n", a, b, c);
+    print_heap_status();
+
+    kfree(b);
+    printf("\nkfreed b\n");
+    print_heap_status();
+
+    kfree(a);
+    printf("\nkfreed a\n\n");
+    print_heap_status();
+
+    kfree(c);
+    printf("\nkfreed c\n\n");
+    print_heap_status();
+
+    printf("\n=== BASIC test done ===\n");
+
+    while (1) {
+        uint8_t key = get_key_press();
+        if (tty.ankered == TTY_NOT_ANKERED) 
+            if (key == KEY_ARROW_UP) 
+                tty_set_screen_row(&tty, tty.screen_row - 1);
+            else if (key == KEY_ARROW_DOWN) 
+                tty_set_screen_row(&tty, tty.screen_row + 1);
+        
+        if (key == KEY_LSHIFT) 
+            tty_set_anker_state(&tty, !tty.ankered);
+    }
 }

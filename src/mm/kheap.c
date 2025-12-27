@@ -10,7 +10,6 @@ heap_t kernel_heap;
 
 
 void print_heap_status() {
-    print_clean_screen();
     printf("--- Kernel Heap Status ---\n");
     
     if (kernel_heap.heap_first == NULL) {
@@ -34,11 +33,11 @@ void print_heap_status() {
         }
         printf("\n");
 
-        printf("  User Data Size: %x bytes\n", current_chunk->size);
+        printf("  User Data Size: 0x%x bytes\n", current_chunk->size);
 
-        printf("  Previous Chunk: %p\n", (uint32_t)current_chunk->previous);
+        printf("  Previous Chunk: 0x%p\n", (uint32_t)current_chunk->previous);
 
-        printf("  Next Chunk: %p\n", (uint32_t)current_chunk->next);
+        printf("  Next Chunk: 0x%p\n", (uint32_t)current_chunk->next);
         
         printf("\n");
 
