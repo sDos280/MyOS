@@ -13,7 +13,7 @@ void timer_interrupt_handler(registers_t* regs){
     }*/
 }
 
-void initialize_timer(uint32_t frequency){
+void timer_init(uint32_t frequency){
     tick = 0;
     used_frequency = frequency;
     uint32_t divisor = base_frequency / frequency;

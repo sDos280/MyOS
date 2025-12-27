@@ -2,7 +2,7 @@
 #include "kernel/screen.h"
 #include "utils.h"
 
-void tty_initialize(tty_t * tty) {
+void tty_init(tty_t * tty) {
     tty_clean_buffer(tty);
     memset(tty->in_char_queue, 0, TTY_IN_CHAR_QUEUE_SIZE);
     tty->head_char_queue = -1;

@@ -55,13 +55,12 @@ SECTIONS
 
 	__kernel_end_v_no_heap = .;
 
-    /* -------- Heap Section (200Mbi) at end -------- */
-    .heap :
+    /* -------- Heap Section (16Mbi) at end -------- */
+    .heap ALIGN (4K) (NOLOAD) : 
     {
         __heap_start = .;
-        . += 0x10000000;
+        . += 0x1000000;
         __heap_end = .;
-        . = ALIGN(4096);
     }
 
     /* Add a symbol that indicates the end address of the kernel. */

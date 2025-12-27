@@ -442,7 +442,7 @@ void ata_wait_drq(ata_drive_t *drive);
 /**
  * Registers ATA IRQ handlers and clears driver state.
  */
-void initiate_ata_driver();
+void ata_driver_init();
 
 /**
  * Reads sectors from an ATA drive using 28-bit LBA PIO.

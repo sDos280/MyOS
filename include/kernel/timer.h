@@ -32,6 +32,6 @@
 #define TIMER_ACCESS_LOW_BYTE   0b00000001
 
 void timer_interrupt_handler(registers_t* regs);
-void initialize_timer(uint32_t frequency);
+void timer_init(uint32_t frequency);
 
 #endif // TIMER_H

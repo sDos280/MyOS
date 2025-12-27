@@ -21,7 +21,7 @@ void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, 
     gdt_entry->base_high    = (base  >> 24) & 0x000000FF; // set base bits 31:24
 }
 
-void initialize_gdt()
+void gdt_init()
 {
     initiate_descriptor(&gdt_entries[0], 0, 0, 0);                // Null segment
     initiate_descriptor(&gdt_entries[1], 0, 0xFFFFFFFF, GDT_CODE_PL0); // Code segment
@@ -46,7 +46,7 @@ void initialize_gate(uint32_t idt_entry_number, uint32_t base, uint16_t sel, uin
     irq_gate->base_high= (base >> 16) & 0xFFFF;
 }
 
-void initialize_idt(){
+void idt_init(){
     idt_ptr.limit = (sizeof(idt_gate_t) * 256) -1;
     idt_ptr.base  = (uint32_t)&idt_entries;
 

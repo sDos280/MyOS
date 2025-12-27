@@ -108,11 +108,11 @@ typedef struct registers_struct {
 typedef void (*isr_handler)(registers_t*);
 
 void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, uint16_t flag);  // Initialize a GDT entry
-void initialize_gdt();  // Setup the GDT
+void gdt_init();  // Setup the GDT
 extern void flush_gdt();  // asm function to load the new GDT
 
 void initialize_gate(uint32_t idt_entry_number, uint32_t base, uint16_t sel, uint8_t flags); // Initialize an IDT gate
-void initialize_idt(); // Setup the IDT
+void idt_init(); // Setup the IDT
 extern void flush_idt();  // asm function to load the new IDT
 
 void isr_stub_handler(registers_t regs);

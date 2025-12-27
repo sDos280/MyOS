@@ -1,25 +1,13 @@
 #include "kernel/print.h"
 #include "mm/kheap.h"
+#include "mm/paging.h"
+#include "mm/pmm.h"
 
-extern uint32_t __kernel_end; // end is defined in the linker scrip
-extern uint32_t __heap_start;  // heap_start is defined in the linker script
-uint32_t placement_address;
+// Defined in the linker
+extern uint32_t __heap_start;  // end is defined in the linker scrip
+extern uint32_t __heap_end;  // heap_start is defined in the linker script
 heap_t kernel_heap;   
 
-
-uint32_t alloc_unfreable_phys(size_t size, uint8_t align) {
-    uint32_t temp;
-
-    if (align == 1) {
-        // ensure placement_address is page-aligned
-        if ((placement_address & 0xFFFFF000) != placement_address) 
-            placement_address = (placement_address + 0x1000) & 0xFFFFF000; // align placement
-    }
-
-    temp = placement_address;
-    placement_address += size;
-    return temp;
-}
 
 void print_heap_status() {
     print_clean_screen();
@@ -61,8 +49,14 @@ void print_heap_status() {
     printf("--- End of Heap Status (Total Chunks: %d) ---\n", chunk_count);
 }
 
-void initialize_heap(){
-    placement_address = (uint32_t)&__kernel_end;
+void heap_init(){
+    /* map the heap somewere */
+    void * paddr;
+
+    for (uint32_t vaddr = (uint32_t)&__heap_start; vaddr < (uint32_t)&__heap_end; vaddr += PAGE_SIZE) {
+        paddr = pmm_alloc_frame();
+        paging_map_page(vaddr, (uint32_t)paddr, PG_WRITABLE | PG_PRESENT);
+    }
 
     heap_chunk_t * first_chunk = (heap_chunk_t *)(&__heap_start);
     first_chunk->is_used = CHUNK_NOT_IN_US;

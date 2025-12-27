@@ -212,7 +212,7 @@ static uint8_t ata_handle_write_single_sector_responce() {
  * Initializes request/response state and registers handlers
  * for ATA primary/secondary device IRQ lines (46,47).
  */
-void initiate_ata_driver() {
+void ata_driver_init() {
     memset((void*)&ata_request, 0, sizeof(ata_request_t));
     memset((void*)&ata_responce, 0, sizeof(ata_responce_t));
 

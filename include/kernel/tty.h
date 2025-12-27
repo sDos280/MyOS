@@ -31,7 +31,7 @@ typedef struct tty_struct {
     uint8_t ankered;                             /* the ankered state of the tty */
 } tty_t;
 
-void tty_initialize(tty_t * tty);
+void tty_init(tty_t * tty);
 void tty_set_anker_state(tty_t * tty, uint8_t state);
 void tty_set_screen_row(tty_t * tty, int32_t row);
 void tty_clean_buffer(tty_t * tty);  /* write a char to the current write position */

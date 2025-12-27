@@ -370,7 +370,7 @@ void keyboard_handle_scancode(uint8_t scancode) {
     keyboard_state[key] = pressed;
 }
 
-void initialize_keyboard_driver() {
+void keyboard_driver_init() {
     // set the key pressed queue
     key_queue.head = 0;
     key_queue.tail = 0;

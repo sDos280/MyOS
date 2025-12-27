@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-#define KHEAP_INITIAL_SIZE  (0x10000000)
+#define KHEAP_INITIAL_SIZE  (0x1000000) /* Note: must be the same as the difference defined in the linker */
 
 #define CHUNK_NOT_IN_US 0
 #define CHUNK_IN_US 1
@@ -22,7 +22,7 @@ typedef struct heap_struct {
 uint32_t alloc_unfreable_phys(size_t size, uint8_t align); // allocate a non freable type of memory, 0 - not align, 1 - align
 
 void print_heap_status(); // pring the heap status
-void initialize_heap();  // initiate the heap maneger 
+void heap_init();  // initiate the heap maneger 
 void* kalloc(size_t size); // allocate memory
 void kfree(void * chunk); // free a chunk
 

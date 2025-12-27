@@ -17,35 +17,43 @@
 void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
     multiboot_info_t multiboot_info_structure;
     tty_t tty;
-    tty_initialize(&tty);
+    tty_init(&tty);
     print_set_tty(&tty);
 
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
         PANIC("Error: multiboot magic number unknown");
     }
 
-    initialize_gdt();
+    gdt_init();
+    printf("GDT initialized.\n");
 
+    /* there is a need to copy that before paging */
     memcpy(&multiboot_info_structure, lower_multiboot_info_structure, sizeof(multiboot_info_t));
 
-    print_clean_screen();
-    printf("Hello, Kernel World!\n");
-
-    initialize_idt();
+    idt_init();
     printf("IDT initialized.\n");
 
     pmm_init();  // initialize physical memory manager
-    paging_init(); // init paging module
+    printf("Physical memory initialized.\n");
 
-    initialize_timer(10); // Initialize timer to 10Hz
+    paging_init(); // init paging module
+    printf("Paging initialized.\n");
+
+    heap_init();  // Initialize heap module
+    printf("Heap initialized.\n");
+
+    timer_init(10); // Initialize timer to 10Hz
     printf("Timer initialized.\n");
+
     
-    initialize_keyboard_driver();  // initialize the keyboard driver
+    keyboard_driver_init();  // initialize the keyboard driver
+    printf("Keyboard driver initialized.\n");
 
     // enable interrupts
     asm volatile ("sti");
 
-    initiate_ata_driver();  // initiate the ata driver
+    ata_driver_init();  // initiate the ata driver
+    printf("Ata driver initialized.\n");
     
     while (1);
 }

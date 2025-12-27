@@ -168,7 +168,7 @@ typedef struct key_queue_struct {
 } key_queue_t;
 
 char key_to_ascii(uint8_t key);
-void initialize_keyboard_driver(); // initialize keyboard driver
+void keyboard_driver_init(); // initialize keyboard driver
 void keyboard_handler(registers_t* regs);  // the keyboard interrupt handler
 uint8_t is_key_pressed(uint8_t key);
 char get_asynchronized_char(); // get the next get asynchronized char (0 if there is no new char)
