@@ -53,7 +53,7 @@ SECTIONS
 		*(.bootstrap_stack*)
     }
 
-	__kernel_end_no_heap = .;
+	__kernel_end_v_no_heap = .;
 
     /* -------- Heap Section (200Mbi) at end -------- */
     .heap :

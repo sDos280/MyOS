@@ -21,7 +21,7 @@
 
 #define PAGING_ENTRIES_SIZE 1024
 
-typedef struct page_struct {
+typedef struct page_entry_struct {
     uint32_t present    : 1;  // Page present in memory
     uint32_t rw         : 1;  // Read-only if clear, readwrite if set
     uint32_t user       : 1;  // Supervisor level only if clear
@@ -29,10 +29,10 @@ typedef struct page_struct {
     uint32_t dirty      : 1;  // Has the page been written to since last refresh?
     uint32_t unused     : 7;  // Amalgamation of unused and reserved bits
     uint32_t frame      : 20; // Frame address (shifted right 12 bits)
-} page_t;
+} page_entry_t;
 
 typedef struct __attribute__ ((aligned (0x1000))) page_table_struct {
-    page_t entries[PAGING_ENTRIES_SIZE];
+    page_entry_t entries[PAGING_ENTRIES_SIZE];
 } page_table_t;
 
 typedef struct __attribute__ ((aligned (0x1000))) page_directory_struct {
@@ -61,7 +61,7 @@ void paging_init();
 void switch_page_directory(page_directory_t * dir);  // switch to the new page directory
 void page_fault_handler(registers_t* regs);  // the page fault handler
 
-uint8_t paging_map_page(void* vaddr, void* paddr, uint32_t table_flags, uint32_t page_flags); /* 1 error, else 0 */
+void paging_map_page(void* vaddr, void* paddr, uint32_t page_flags);
 void paging_unmap_page(void* vaddr);
 void* paging_get_mapping(void* vaddr);
 

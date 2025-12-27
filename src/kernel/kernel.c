@@ -14,17 +14,19 @@
 #include "types.h"
 
 // Entry point called by GRUB
-void kernel_main(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_magic)
-{
-    if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        PANIC("Error: multiboot magic number unknown");
-    }
-
+void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
+    multiboot_info_t multiboot_info_structure;
     tty_t tty;
     tty_initialize(&tty);
     print_set_tty(&tty);
 
+    if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+        PANIC("Error: multiboot magic number unknown");
+    }
+
     initialize_gdt();
+
+    memcpy(&multiboot_info_structure, lower_multiboot_info_structure, sizeof(multiboot_info_t));
 
     print_clean_screen();
     printf("Hello, Kernel World!\n");
@@ -32,12 +34,12 @@ void kernel_main(multiboot_info_t* multiboot_info_structure, uint32_t multiboot_
     initialize_idt();
     printf("IDT initialized.\n");
 
-    initialize_timer(10); // Initialize timer to 10Hz
-    printf("Timer initialized.\n");
-
     pmm_init();  // initialize physical memory manager
     paging_init(); // init paging module
 
+    initialize_timer(10); // Initialize timer to 10Hz
+    printf("Timer initialized.\n");
+    
     initialize_keyboard_driver();  // initialize the keyboard driver
 
     // enable interrupts

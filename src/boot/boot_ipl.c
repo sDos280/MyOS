@@ -23,15 +23,14 @@ page_table_t boot_page_tables[PAGING_ENTRIES_SIZE];
 /* Symbols provided by the linker */
 extern uint32_t __kernel_start;
 extern uint32_t __kernel_start_v;
-extern uint32_t __kernel_end_no_heap;
+extern uint32_t __kernel_end_v_no_heap;
 extern uint32_t __kernel_end;
 
 /*
  * Maps a single 4KB page.
  * Assumes the page table already exists.
  */
-static uint8_t
-boot_map_page(page_directory_t *pd, void *vaddr, void *paddr, uint32_t flags)
+uint8_t boot_map_page(page_directory_t *pd, void *vaddr, void *paddr, uint32_t flags)
 {
     uint32_t va = (uint32_t)vaddr;
     uint32_t pa = (uint32_t)paddr;
@@ -68,7 +67,7 @@ void boot_ipl(multiboot_info_t *mb_info, uint32_t mb_magic) {
      * Linear pointers are used before paging,
      * physical addresses are written to PDEs.
      */
-    boot_page_directory.physical_addr = (uint32_t)&boot_page_directory;
+    boot_page_directory.physical_addr = (uint32_t)boot_page_directory.tables_physical;
 
     for (size_t i = 0; i < PAGING_ENTRIES_SIZE; i++) {
         boot_page_directory.tables[i] =  &boot_page_tables[i];
@@ -80,7 +79,7 @@ void boot_ipl(multiboot_info_t *mb_info, uint32_t mb_magic) {
     /*
      * Identity map the lower memory region.
      */
-    uint32_t kernel_end_phys = (uint32_t)&__kernel_end_no_heap - 0xC0000000;
+    uint32_t kernel_end_phys = (uint32_t)&__kernel_end_v_no_heap - 0xC0000000;
 
     for (uint32_t addr = 0; addr < kernel_end_phys; addr += PAGE_SIZE) 
         boot_map_page(&boot_page_directory, (void *)addr, (void *)addr, PG_PRESENT | PG_WRITABLE);
@@ -93,11 +92,20 @@ void boot_ipl(multiboot_info_t *mb_info, uint32_t mb_magic) {
             boot_map_page(&boot_page_directory, (void *)vaddr, (void *)(vaddr - 0xC0000000), PG_PRESENT | PG_WRITABLE);
     
     /*
+     * Map the last page to the text screen mmio
+     */
+    boot_map_page(&boot_page_directory, (void *)0xFFFFF000, (void *)0xB8000, PG_PRESENT | PG_WRITABLE);
+
+    uint16_t * t = (void *)0xFFFFF000;
+    (*t) = 0x076D;
+    uint16_t h = (*t);
+
+    /*
      * Load page directory and enable paging
      */
     asm volatile("mov %0, %%cr3"
                  :
-                 : "r"(boot_page_directory.tables_physical)
+                 : "r"(boot_page_directory.physical_addr)
                  : "memory");
 
     uint32_t cr0;

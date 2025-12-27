@@ -1,3 +1,4 @@
+#include "kernel/panic.h"
 #include "mm/pmm.h"
 #include "utils.h"
 
@@ -10,6 +11,9 @@ static uint32_t bit_field[PMM_BIT_FIELD_ARR_SIZE];
 
 void pmm_init() {
     memset(bit_field, 0, sizeof(uint32_t) * PMM_BIT_FIELD_ARR_SIZE);
+
+    /* make first 1 Mbit of memory of usable, so no pages will be allocated to here */
+    pmm_alloc_frames_addr(0, 0x00100000 / FRAME_SIZE);
 }
 
 void* pmm_alloc_frame_addr(void * paddr) {

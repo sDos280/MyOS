@@ -4,7 +4,7 @@
 
 #define BACKGROUND_COLOR 0x07
 
-static volatile char *video = (volatile char*)0xB8000;
+static volatile char *video = (volatile char*)0xFFFFF000;
 
 void screen_flush_tty(tty_t * tty) {
     for (uint32_t y = 0; y < SCREEN_ROWS; y++) {
