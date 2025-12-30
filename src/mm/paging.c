@@ -154,3 +154,7 @@ void paging_unmap_page(void* vaddr) {
     page_entry_t * p = &(current_directory->tables[TABLE_INDEX((uint32_t)vaddr)]->entries[PAGE_INDEX((uint32_t)vaddr)]);
     memset(p, 0, sizeof(page_entry_t));
 }
+
+page_directory_t * paging_get_current_directory() {
+    return current_directory;
+}

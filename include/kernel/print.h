@@ -4,6 +4,7 @@
 #include "kernel/tty.h"
 #include "types.h"
 
+tty_t * print_get_tty();
 void print_set_tty(tty_t * tty);
 void print_clean_screen();
 void putchar(char c);

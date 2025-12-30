@@ -23,6 +23,7 @@ void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, 
 
 void gdt_init()
 {
+    /* Note: This os woudn't use segmentation, and all protected mechanisms will be handled by paging */
     initiate_descriptor(&gdt_entries[0], 0, 0, 0);                // Null segment
     initiate_descriptor(&gdt_entries[1], 0, 0xFFFFFFFF, GDT_CODE_PL0); // Code segment
     initiate_descriptor(&gdt_entries[2], 0, 0xFFFFFFFF, GDT_DATA_PL0); // Data segment

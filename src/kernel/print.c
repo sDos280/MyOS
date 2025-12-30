@@ -4,6 +4,10 @@
 
 tty_t * ctty; /* current tty */
 
+tty_t * print_get_tty() {
+    return ctty;
+}
+
 void print_set_tty(tty_t * tty) {
     ctty = tty;
 }
