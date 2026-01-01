@@ -381,7 +381,7 @@ void keyboard_driver_init() {
     register_interrupt_handler(33, keyboard_handler);
 }
 
-void keyboard_handler(registers_t* regs){
+void keyboard_handler(cpu_status_t* regs){
     // Note: after testing we found that the current keyboard uses "Scan Code Set 1"
     uint8_t scancode = inb(0x60);
 

@@ -97,7 +97,7 @@ void switch_page_directory(page_directory_t * dir) {
     asm volatile("mov %0, %%cr0":: "r"(cr0));
 }
 
-void page_fault_handler(registers_t* regs) {
+void page_fault_handler(cpu_status_t* regs) {
     
     // A page fault has occurred.
     // The faulting address is stored in the CR2 register.

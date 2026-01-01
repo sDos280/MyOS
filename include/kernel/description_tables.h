@@ -96,16 +96,16 @@ typedef struct __attribute__((packed)) descriptor_ptr_struct
     uint32_t base;                // The address of the first descriptor_ptr_t struct.
 } descriptor_ptr_t;
 
-typedef struct registers_struct {
+typedef struct cpu_status_struct {
     uint32_t ds;
     // Pushed by pusha.
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
     uint32_t int_no, err_code;
     // Pushed by the processor automatically.
     uint32_t eip, cs, eflags, useresp, ss;
-} registers_t;
+} cpu_status_t;
 
-typedef void (*isr_handler)(registers_t*);
+typedef void (*isr_handler)(cpu_status_t*);
 
 void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, uint16_t flag);  // Initialize a GDT entry
 void gdt_init();  // Setup the GDT
@@ -115,7 +115,7 @@ void initialize_gate(uint32_t idt_entry_number, uint32_t base, uint16_t sel, uin
 void idt_init(); // Setup the IDT
 extern void flush_idt();  // asm function to load the new IDT
 
-void isr_stub_handler(registers_t regs);
+void isr_stub_handler(cpu_status_t regs);
 void register_interrupt_handler(uint8_t isr_number, isr_handler handler);
 
 extern void isr0 ();

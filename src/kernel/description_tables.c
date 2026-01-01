@@ -111,7 +111,7 @@ void idt_init(){
 }
 
 
-void isr_stub_handler(registers_t regs){
+void isr_stub_handler(cpu_status_t regs){
     static uint16_t isr_tick = 0;
 
     if (interrupt_handlers[regs.int_no]) {

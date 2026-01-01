@@ -88,7 +88,7 @@ typedef struct ata_responce_struct {
 } ata_responce_t;
 
 /* Global static functions */
-static void ata_response_handler(registers_t *regs);
+static void ata_response_handler(cpu_status_t *regs);
 
 /* Global driver request/response state */
 ata_request_t  ata_request;
@@ -394,7 +394,7 @@ uint8_t ata_flush_cache(ata_drive_t *drive) {
  *   - Signals completion to waiting caller
  *   - Sends EOI to the :contentReference[oaicite:0]{index=0}
  */
-static void ata_response_handler(registers_t *regs) {
+static void ata_response_handler(cpu_status_t *regs) {
     uint8_t st;
 
     if (!ata_request.pending) {

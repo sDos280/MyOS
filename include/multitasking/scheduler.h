@@ -1,8 +1,9 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#include "multitasking/thread.h"
+#include "kernel/description_tables.h"
+#include "multitasking/process.h"
 
-uint8_t scheduler_schedule_next();  /* constact switch to the next thread */
+cpu_status_t * scheduler_schedule(cpu_status_t * context);  /* constact switch to the next process */
 
 #endif // SCHEDULER_H
