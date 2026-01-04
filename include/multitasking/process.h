@@ -20,11 +20,12 @@ typedef struct process_sturct {
     pid_t pid;
     process_state_e status;
     cpu_status_t context;
-    process_t * next;
+    struct process_sturct * next;
 } process_t;
 
 void process_init();
 process_t * process_create(void (*entry)(void *), size_t stack_size);
 uint8_t process_announce(process_t * process);
+uint8_t process_set_current(process_t * process); /* the process must be annonced */
 
 #endif // THREAD_H

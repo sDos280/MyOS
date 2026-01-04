@@ -8,10 +8,17 @@
 #include "mm/pmm.h"
 #include "drivers/keyboard_driver.h"
 #include "drivers/ata_driver.h"
+#include "multitasking/process.h"
+#include "multitasking/scheduler.h"
 #include "multiboot_helper.h"
 #include "multiboot.h"
 #include "utils.h"
 #include "types.h"
+
+void p1_main();
+void p2_main();
+
+void print_process_list(process_t *head);
 
 // Entry point called by GRUB
 void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
@@ -42,53 +49,36 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     heap_init();  // Initialize heap module
     printf("Heap initialized.\n");
 
-    timer_init(10); // Initialize timer to 10Hz
+    timer_init(500); // Initialize timer to 500Hz
     printf("Timer initialized.\n");
-
     
     keyboard_driver_init();  // initialize the keyboard driver
     printf("Keyboard driver initialized.\n");
 
+    ata_driver_init();  // initiate the ata driver
+    printf("Ata driver initialized.\n");
+
+    process_init();
+    
+    process_t * p1 = process_create(p1_main, 0x100000);
+    process_t * p2 = process_create(p2_main, 0x100000);
+    process_t * p3 = process_create(p1_main, 0x100000);
+    process_t * p4 = process_create(p2_main, 0x100000);
+
+    process_announce(p1);
+    process_announce(p2);
+    process_announce(p3);
+    
+    process_announce(p4);
+
+    print_process_list(p1);
+    
+    process_set_current(p1);
+
+    sheduler_run();
+
     // enable interrupts
     asm volatile ("sti");
 
-    ata_driver_init();  // initiate the ata driver
-    printf("Ata driver initialized.\n");
-    
-    printf("\n\n=== kalloc/kfree BASIC test ===\n\n");
-
-    print_heap_status();
-
-    void* a = kalloc(64);
-    void* b = kalloc(128); 
-    void* c = kalloc(256);
-
-    printf("\nAllocated a=%p b=%p c=%p\n\n", a, b, c);
-    print_heap_status();
-
-    kfree(b);
-    printf("\nkfreed b\n");
-    print_heap_status();
-
-    kfree(a);
-    printf("\nkfreed a\n\n");
-    print_heap_status();
-
-    kfree(c);
-    printf("\nkfreed c\n\n");
-    print_heap_status();
-
-    printf("\n=== BASIC test done ===\n");
-
-    while (1) {
-        uint8_t key = get_key_press();
-        if (tty.ankered == TTY_NOT_ANKERED) 
-            if (key == KEY_ARROW_UP) 
-                tty_set_screen_row(&tty, tty.screen_row - 1);
-            else if (key == KEY_ARROW_DOWN) 
-                tty_set_screen_row(&tty, tty.screen_row + 1);
-        
-        if (key == KEY_LSHIFT) 
-            tty_set_anker_state(&tty, !tty.ankered);
-    }
+    while (1);
 }

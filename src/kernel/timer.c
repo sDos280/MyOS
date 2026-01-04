@@ -1,6 +1,8 @@
 #include "kernel/timer.h"
 #include "kernel/print.h"
 #include "io/port.h"
+#include "multitasking/scheduler.h"
+#include "utils.h"
 
 static uint32_t used_frequency = 0;
 static uint32_t base_frequency = 1193180; // The PIT runs at 1.19318 MHz
@@ -8,9 +10,9 @@ static uint32_t tick = 0;
 
 void timer_interrupt_handler(cpu_status_t* regs){
     tick++;
-    /*if (tick % used_frequency == 0) {  // every second
-        printf("Tick: %d\n", tick / used_frequency);
-    }*/
+    
+    cpu_status_t next_regs = scheduler_schedule(regs);
+    memcpy(regs, &next_regs, sizeof(cpu_status_t));
 }
 
 void timer_init(uint32_t frequency){
