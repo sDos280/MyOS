@@ -25,8 +25,8 @@ cpu_status_t scheduler_schedule(cpu_status_t * context) {
 
         if ((sheduled_count++) != 0) {
             /* this is not the first process we will shedule */
-            // current_process->context = *context;  // save the current process this create problems
-            memcpy(&current_process->context, context, sizeof(cpu_status_t)); /* save the current process context */
+            current_process->context = *context;  /* save the current process context */
+            //memcpy(&current_process->context, context, sizeof(cpu_status_t)); 
             
             /* move to the next provess */
             if (current_process->next != NULL) 

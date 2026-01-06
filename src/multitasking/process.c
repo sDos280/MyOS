@@ -51,8 +51,9 @@ process_t * process_create(void (*entry)(void *), size_t stack_size) {
 
     process->pid = next_pid++;
     process->status = PROCESS_READY;
+    process->context.ds = 0x10;  // Data segment
     process->context.ss = 0x10;  // Data segment
-    process->context.esp = kalloc(stack_size); 
+    process->context.esp = kalloc(stack_size) + stack_size; 
     process->context.eflags = 0x202;  // 0x0002 | 0x0200 <=> 0x0002 always on, 0x0200 interrupts enabled
     process->context.cs = 0x08;  // Code segment
     process->context.eip = (uint32_t)entry;  // Main entry

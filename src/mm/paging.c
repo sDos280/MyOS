@@ -117,7 +117,7 @@ void page_fault_handler(cpu_status_t* regs) {
     if (rw) {printf("read-only ");}
     if (us) {printf("user-mode ");}
     if (reserved) {printf("reserved ");}
-    printf(") at %p\n", faulting_address);
+    printf(") at %p. eip is %p\n", faulting_address, regs->eip);
     PANIC("Page fault");
 }
 
