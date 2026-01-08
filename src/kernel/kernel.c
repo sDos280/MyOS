@@ -15,6 +15,7 @@
 #include "utils.h"
 #include "types.h"
 
+void idle_process_main();
 void p1_main();
 void p2_main();
 
@@ -60,23 +61,19 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     process_init();
     
+    process_t * idle_process = process_create(idle_process_main, 0x100000);
     process_t * p1 = process_create(p1_main, 0x100000);
     process_t * p2 = process_create(p2_main, 0x100000);
-    process_t * p3 = process_create(p1_main, 0x100000);
-    process_t * p4 = process_create(p2_main, 0x100000);
 
+    process_announce(idle_process);
     process_announce(p1);
     process_announce(p2);
-    process_announce(p3);
-    
-    process_announce(p4);
 
-    print_process_list(p1);
-    
-    process_set_current(p1);
+    print_process_list(idle_process);
+    process_set_current(idle_process);
 
     sheduler_run();
-
+    
     // enable interrupts
     asm volatile ("sti");
 

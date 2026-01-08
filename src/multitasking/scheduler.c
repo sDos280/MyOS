@@ -15,7 +15,15 @@ void sheduler_run() {
     state = SHEDULER_ON;
 }
 
-cpu_status_t scheduler_schedule(cpu_status_t * context) {
+void scheduler_setup_process_context_frame_at_their_stack(process_t process) {
+    /* Note: process.context.esp hold thier current stack pointer */
+    uint32_t * frame = process.context.esp;
+    
+    frame -= sizeof(cpu_status_t) / sizeof(uint32_t); /* create room in the stack for the process context */
+    
+}
+
+cpu_status_t scheduler_get_next_context(cpu_status_t * context) {
     static size_t sheduled_count = 0; /* the number of time we have shedule a process */
 
     if (state == SHEDULER_ON) {
@@ -26,7 +34,6 @@ cpu_status_t scheduler_schedule(cpu_status_t * context) {
         if ((sheduled_count++) != 0) {
             /* this is not the first process we will shedule */
             current_process->context = *context;  /* save the current process context */
-            //memcpy(&current_process->context, context, sizeof(cpu_status_t)); 
             
             /* move to the next provess */
             if (current_process->next != NULL) 
@@ -35,6 +42,7 @@ cpu_status_t scheduler_schedule(cpu_status_t * context) {
                 current_process = processes_list;
         }
 
+        /* if the this is the first sheduling, then we would just load the first process context */
         return current_process->context;
     } else {
         return *context;

@@ -5,6 +5,6 @@
 #include "multitasking/process.h"
 
 void sheduler_run();
-cpu_status_t scheduler_schedule(cpu_status_t * context);  /* constact switch to the next process */
+cpu_status_t scheduler_get_next_context(cpu_status_t * context);  /* constact switch to the next process */
 
 #endif // SCHEDULER_H

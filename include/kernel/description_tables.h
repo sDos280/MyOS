@@ -102,7 +102,7 @@ typedef struct cpu_status_struct {
     uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;
     uint32_t int_no, err_code;
     // Pushed by the processor automatically.
-    uint32_t eip, cs, eflags, useresp, ss;
+    uint32_t eip, cs, eflags;
 } cpu_status_t;
 
 typedef void (*isr_handler)(cpu_status_t*);
