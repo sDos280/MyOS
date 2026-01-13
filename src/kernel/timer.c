@@ -13,7 +13,8 @@ void timer_interrupt_handler(cpu_timer_status_t* regs){
     tick++;
     pic_sendEOI(32); /* send a pic now, since after a shedule we wouldn't be able to sent it */
 
-    schduler_schedule();
+    if (tick % used_frequency == 0)
+        schduler_schedule();
 }
 
 void timer_init(uint32_t frequency){

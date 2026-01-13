@@ -14,6 +14,7 @@ scheduler_context_switch_asm:
     mov esp, edx      // Move to the next thread stack
 
     popa              // Pops   edi,esi,ebp,esp,ebx,edx,ecx,eax
+    sti               // Enable interrupt (to enable interrupts in next thread)
     ret               // Move to the pushed instruction address
 
 scheduler_start_first_thread_asm:
