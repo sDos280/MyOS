@@ -19,7 +19,7 @@ typedef size_t pid_t;
 typedef struct process_sturct {
     pid_t pid;
     process_state_e status;
-    cpu_status_t context;
+    uint32_t * esp;
     struct process_sturct * next;
 } process_t;
 

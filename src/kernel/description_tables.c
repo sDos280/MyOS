@@ -113,8 +113,6 @@ void idt_init(){
 
 void isr_stub_handler(cpu_status_t regs){
     static uint16_t isr_tick = 0;
-
-    cpu_status_t regs_copy = regs; /* there is a need because if interrupt change that (like timer) we would end to pic currecly */ 
     
     if (interrupt_handlers[regs.int_no]) {
         isr_handler handler = interrupt_handlers[regs.int_no];
@@ -126,7 +124,9 @@ void isr_stub_handler(cpu_status_t regs){
     
     isr_tick++;
     
-    pic_sendEOI(regs_copy.int_no); // If the interrupt involved the PIC irq send EOI
+    /* the timer interrupt is calling pic eoi itself */
+    if (regs.int_no != 32) 
+        pic_sendEOI(regs.int_no); // If the interrupt involved the PIC irq send EOI
 }
 
 void register_interrupt_handler(uint8_t isr_number, isr_handler handler){
