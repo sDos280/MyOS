@@ -20,13 +20,14 @@ static const char *process_state_str(process_state_e state)
 void print_process_list(process_t *head) {
     process_t *p = head;
 
-    printf(" PID      STATE        EIP         ESP          NEXT\n");
+    printf(" PID      STATE            ESP          NEXT\n");
     printf("---------------------------------------------------------\n");
 
     while (p) {
-        printf("pid=%d state=%s eip=%p esp=%p next=%p\n",
+        printf("pid=%d state=%s esp=%p next=%p\n",
                 p->pid,
                 process_state_str(p->status),
+                (void *)p->esp,
                 (void *)p->next);
 
         p = p->next;
@@ -42,17 +43,16 @@ process_t * process_create(void (*entry)(void), size_t stack_size) {
 
     process->pid = next_pid++;
     process->status = PROCESS_RUNNING;
-    process->esp = (uint32_t *)(kalloc(stack_size) + (stack_size /*- 1*/));
+    process->esp = (uint32_t *)((uint32_t)kalloc(stack_size) + (stack_size /*- 1*/));
     /* Note the following 2 pushed may be redundant */
-    *(--process->esp) = NULL;   /* &Current thread stack (shoudn't be poped) */
-    *(--process->esp) = NULL;   /* Next Thread stack (shoudn't be poped) */
+    *(--process->esp) = (uint32_t)NULL;   /* &Current thread stack (shoudn't be poped) */
+    *(--process->esp) = (uint32_t)NULL;   /* Next Thread stack (shoudn't be poped) */
     /* Fix: there is a need to add an entry to some function like thread_exit */
-    *(--process->esp) = entry;  /* Main Entry */
-    uint32_t * temp = process->esp; /* there is a need to pop*/
+    *(--process->esp) = (uint32_t)entry;  /* Main Entry */
     *(--process->esp) = 0;      /* edi */
     *(--process->esp) = 0;      /* esi */
     *(--process->esp) = 0;      /* ebp */
-    *(--process->esp) = temp;   /* original esp */
+    *(--process->esp) = 0;      /* esp, ignored by popa */
     *(--process->esp) = 0;      /* ebx */
     *(--process->esp) = 0;      /* edx */
     *(--process->esp) = 0;      /* ecx */

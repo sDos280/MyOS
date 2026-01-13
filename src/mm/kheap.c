@@ -54,7 +54,7 @@ void heap_init(){
 
     for (uint32_t vaddr = (uint32_t)&__heap_start; vaddr < (uint32_t)&__heap_end; vaddr += PAGE_SIZE) {
         paddr = pmm_alloc_frame();
-        paging_map_page(vaddr, (uint32_t)paddr, PG_WRITABLE | PG_PRESENT);
+        paging_map_page((void *)vaddr, paddr, PG_WRITABLE | PG_PRESENT);
     }
 
     heap_chunk_t * first_chunk = (heap_chunk_t *)(&__heap_start);

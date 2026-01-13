@@ -24,7 +24,7 @@ typedef struct process_sturct {
 } process_t;
 
 void process_init();
-process_t * process_create(void (*entry)(void *), size_t stack_size);
+process_t * process_create(void (*entry)(void), size_t stack_size);
 uint8_t process_announce(process_t * process);
 uint8_t process_set_current(process_t * process); /* the process must be annonced */
 

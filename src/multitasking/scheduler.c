@@ -45,5 +45,5 @@ void schduler_schedule() {
 
     current_process = next_process;
     
-    scheduler_switch_to_task_asm(&current_process_copy->esp, next_process->esp);
+    scheduler_context_switch_asm(&current_process_copy->esp, next_process->esp);
 }

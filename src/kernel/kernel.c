@@ -58,24 +58,18 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     ata_driver_init();  // initiate the ata driver
     printf("Ata driver initialized.\n");
-
-    process_init();
     
     process_t * idle_process = process_create(idle_process_main, 0x100000);
     process_t * p1 = process_create(p1_main, 0x100000);
     process_t * p2 = process_create(p2_main, 0x100000);
 
-    process_announce(idle_process);
-    process_announce(p1);
-    process_announce(p2);
+    scheduler_add_processes_to_list(idle_process);
+    scheduler_add_processes_to_list(p1);
+    scheduler_add_processes_to_list(p2);
 
     print_process_list(idle_process);
-    process_set_current(idle_process);
 
-    sheduler_run();
-    
-    // enable interrupts
-    asm volatile ("sti");
+    scheduler_start_first_thread_asm(idle_process->esp);
 
     while (1);
 }

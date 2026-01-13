@@ -1,12 +1,12 @@
 .intel_syntax noprefix
 
-.global scheduler_switch_to_task_asm
-
+.global scheduler_context_switch_asm
+.global scheduler_start_first_thread_asm
 
 .section .text
-scheduler_switch_to_task_asm:
-    mov ecx, [8+esp]  // Pointer to current thread stack 
-    mov edx, [4+esp]  // Next thread stack address
+scheduler_context_switch_asm:
+    mov ecx, [4+esp]  // Pointer to current thread stack 
+    mov edx, [8+esp]  // Next thread stack address
 
     pusha             // Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
 
