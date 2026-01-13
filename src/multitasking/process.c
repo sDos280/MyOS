@@ -46,6 +46,7 @@ process_t * process_create(void (*entry)(void), size_t stack_size) {
     /* Note the following 2 pushed may be redundant */
     *(--process->esp) = NULL;   /* &Current thread stack (shoudn't be poped) */
     *(--process->esp) = NULL;   /* Next Thread stack (shoudn't be poped) */
+    /* Fix: there is a need to add an entry to some function like thread_exit */
     *(--process->esp) = entry;  /* Main Entry */
     uint32_t * temp = process->esp; /* there is a need to pop*/
     *(--process->esp) = 0;      /* edi */

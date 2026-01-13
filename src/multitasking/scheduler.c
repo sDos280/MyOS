@@ -10,6 +10,22 @@
 static process_t * processes_list;
 static process_t * current_process;
 
+void scheduler_add_processes_to_list(process_t * process) {
+    if (current_process == NULL || processes_list == NULL) {
+        current_process = process;
+        processes_list = process;
+        return;
+    }
+
+    process_t * last = processes_list;
+
+    while (last->next != NULL) {
+        last = last->next;
+    }
+
+    last->next = process;
+}
+
 process_t * scheduler_get_next_process() {
     if (current_process == NULL) return NULL;
 
