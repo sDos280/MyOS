@@ -50,7 +50,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     heap_init();  // Initialize heap module
     printf("Heap initialized.\n");
 
-    timer_init(500); // Initialize timer to 500Hz
+    timer_init(1000); // Initialize timer to 1000Hz
     printf("Timer initialized.\n");
     
     keyboard_driver_init();  // initialize the keyboard driver
@@ -69,7 +69,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     print_process_list(idle_process);
 
-    scheduler_start_first_thread_asm(idle_process->esp);
+    scheduler_start_thread_asm(idle_process->esp);
 
     while (1);
 }

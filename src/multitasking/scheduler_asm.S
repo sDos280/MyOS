@@ -1,7 +1,9 @@
 .intel_syntax noprefix
 
 .global scheduler_context_switch_asm
-.global scheduler_start_first_thread_asm
+.global scheduler_start_thread_asm
+
+.extern sheduler_thread_exit
 
 .section .text
 scheduler_context_switch_asm:
@@ -22,5 +24,24 @@ scheduler_start_first_thread_asm:
 
     mov esp, edx      // Move to the next thread stack
     
-    popa              // Pops   edi,esi,ebp,esp,ebx,edx,ecx,eax
-    ret               // Move to the pushed instruction address
+    // When we get here, the thread's stack looks like this:
+    // ====== Stack High Adresses (32 bit) ====== 
+    // scheduler_thread_exit
+    // entry
+    // edi
+    // esi
+    // ebp
+    // esp
+    // ebx
+    // edx
+    // ecx
+    // eax
+    // ====== Stack Lower Adresses (32 bit) ====== 
+
+    popa              // Pops   edi,esi,ebp,esp (not really),ebx,edx,ecx,eax
+    pop edx           // Set edx as the entry
+
+    call edx
+    
+    // We shouldn't be here !!!
+    ud2

@@ -35,6 +35,8 @@ void print_process_list(process_t *head) {
 }
 
 process_t * process_create(void (*entry)(void), size_t stack_size) {
+    void scheduler_thread_exit();
+
     process_t * process = kalloc(sizeof(process_t));
 
     if (process == NULL) return NULL; /* no more memory or error */
@@ -43,11 +45,9 @@ process_t * process_create(void (*entry)(void), size_t stack_size) {
 
     process->pid = next_pid++;
     process->status = PROCESS_RUNNING;
-    process->esp = (uint32_t *)((uint32_t)kalloc(stack_size) + (stack_size /*- 1*/));
-    /* Note the following 2 pushed may be redundant */
-    *(--process->esp) = (uint32_t)NULL;   /* &Current thread stack (shoudn't be poped) */
-    *(--process->esp) = (uint32_t)NULL;   /* Next Thread stack (shoudn't be poped) */
+    process->esp = (uint32_t *)((uint32_t)kalloc(stack_size) + (stack_size - 1));
     /* Fix: there is a need to add an entry to some function like thread_exit */
+    *(--process->esp) = (uint32_t)scheduler_thread_exit;
     *(--process->esp) = (uint32_t)entry;  /* Main Entry */
     *(--process->esp) = 0;      /* edi */
     *(--process->esp) = 0;      /* esi */
@@ -56,7 +56,7 @@ process_t * process_create(void (*entry)(void), size_t stack_size) {
     *(--process->esp) = 0;      /* ebx */
     *(--process->esp) = 0;      /* edx */
     *(--process->esp) = 0;      /* ecx */
-    *(--process->esp) = 0;      /* eax */
+    *(--process->esp) = 0;  /* eax */
     
     process->next = NULL;
 

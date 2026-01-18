@@ -10,5 +10,7 @@ void p2_main() {
         print_char('\n');
 
         i++;
+
+        if (i >= 20000) break;
     }
 }
