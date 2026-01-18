@@ -69,7 +69,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     print_process_list(idle_process);
 
-    scheduler_start_thread_asm(idle_process->esp);
+    scheduler_context_switch_asm(NULL, idle_process->esp);
 
     while (1);
 }

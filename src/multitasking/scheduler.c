@@ -90,5 +90,5 @@ void scheduler_thread_exit() {
 
     current_process = next_process;
 
-    scheduler_start_thread_asm(current_process_copy->esp);
+    scheduler_context_switch_asm(NULL, current_process->esp);
 }

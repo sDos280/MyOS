@@ -12,7 +12,10 @@ scheduler_context_switch_asm:
 
     pusha             // Pushes edi,esi,ebp,esp,ebx,edx,ecx,eax
 
+    test ecx, ecx     // Is current pointer NULL?
+    jz .skip_save
     mov [ecx], esp    // Save the current thread stack address to the pointer passed by the caller
+.skip_save:
     mov esp, edx      // Move to the next thread stack
 
     popa              // Pops   edi,esi,ebp,esp,ebx,edx,ecx,eax
