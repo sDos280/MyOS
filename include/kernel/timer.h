@@ -31,7 +31,7 @@
 #define TIMER_ACCESS_LATCH_COUNT 0b00000000
 #define TIMER_ACCESS_LOW_BYTE   0b00000001
 
-void timer_interrupt_handler(cpu_timer_status_t * regs);
+void timer_interrupt_handler(cpu_status_t * regs);
 void timer_init(uint32_t frequency);
 
 #endif // TIMER_H

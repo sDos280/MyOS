@@ -9,7 +9,7 @@ static uint32_t used_frequency = 0;
 static uint32_t base_frequency = 1193180; // The PIT runs at 1.19318 MHz
 static uint32_t tick = 0;
 
-void timer_interrupt_handler(cpu_timer_status_t* regs){
+void timer_interrupt_handler(cpu_status_t* regs){
     tick++;
     pic_sendEOI(32); /* send a pic now, since after a shedule we wouldn't be able to sent it */
 
