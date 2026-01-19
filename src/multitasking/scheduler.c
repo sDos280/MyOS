@@ -73,8 +73,13 @@ static void scheduler_remove_zombie_processes() {
 process_t * scheduler_get_next_process() {
     process_t * p = remove_to_process_queue(&processes_ready_queue);
 
-    if (p == NULL)
+    /* If there is no running process and the running process isn't the idle one, we would want to continue on this 
+       process */
+    if (p == NULL && current_process->type != PROCESS_IDLE) {
+        return current_process;
+    } else if (p == NULL) {
         return idle_process;
+    }
 
     return p;
 }
@@ -86,6 +91,10 @@ void scheduler_schedule() {
 
     /* Fix: There is a need to check what will happen if current process = next process */
     process_t * next_process = scheduler_get_next_process();
+
+    /* there is no need to shedule if the next process is the same */
+    if (current_process == next_process) return;
+    
     process_t * current_process_copy = current_process;
 
     current_process->status = PROCESS_READY;
@@ -100,12 +109,13 @@ void scheduler_schedule() {
 }
 
 void scheduler_thread_exit() {
-    /* THIS IS BROKEN RIGHT NOW */
     process_t * next_process = scheduler_get_next_process();
     process_t * current_process_copy = current_process;
 
     if (current_process->type == PROCESS_IDLE) PANIC("The idle thread can't exit!!!");
     current_process->status = PROCESS_ZOMBIE;
+    /* Note: the current running process, shouldn't be linked in any of the queues */
+    add_to_process_queue(&processes_zombie_queue, current_process);
     next_process->status = PROCESS_RUNNING;
 
     current_process = next_process;
