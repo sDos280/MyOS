@@ -11,6 +11,6 @@ void p2_main() {
 
         i++;
 
-        if (i >= 20000) break;
+        if (i >= 5000) break;
     }
 }

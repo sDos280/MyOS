@@ -71,6 +71,7 @@ static void scheduler_remove_zombie_processes() {
 }
 
 process_t * scheduler_get_next_process() {
+    /* Important: may return the same process */
     process_t * p = remove_to_process_queue(&processes_ready_queue);
 
     /* If there is no running process and the running process isn't the idle one, we would want to continue on this 
@@ -109,10 +110,19 @@ void scheduler_schedule() {
 }
 
 void scheduler_thread_exit() {
-    process_t * next_process = scheduler_get_next_process();
-    process_t * current_process_copy = current_process;
-
     if (current_process->type == PROCESS_IDLE) PANIC("The idle thread can't exit!!!");
+
+    process_t * next_process = scheduler_get_next_process();
+
+    /* if the next process equals to the current process then we need to set the current process to idle */
+    if (next_process == current_process) {
+        current_process = idle_process;
+        current_process->status = PROCESS_RUNNING;
+        goto thread_exit_switch;
+    }
+
+    process_t * current_process_copy = current_process;
+    
     current_process->status = PROCESS_ZOMBIE;
     /* Note: the current running process, shouldn't be linked in any of the queues */
     add_to_process_queue(&processes_zombie_queue, current_process);
@@ -120,5 +130,6 @@ void scheduler_thread_exit() {
 
     current_process = next_process;
 
+thread_exit_switch:
     scheduler_context_switch_asm(NULL, current_process->esp);
 }
