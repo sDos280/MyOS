@@ -15,7 +15,6 @@
 #include "utils.h"
 #include "types.h"
 
-void idle_process_main();
 void p1_main();
 void p2_main();
 
@@ -59,17 +58,19 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     ata_driver_init();  // initiate the ata driver
     printf("Ata driver initialized.\n");
     
-    process_t * idle_process = process_create(idle_process_main, 0x100000);
-    process_t * p1 = process_create(p1_main, 0x100000);
-    process_t * p2 = process_create(p2_main, 0x100000);
+    process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
+    process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);
 
-    scheduler_add_processes_to_list(idle_process);
+    scheduler_init();
+
     scheduler_add_processes_to_list(p1);
     scheduler_add_processes_to_list(p2);
 
-    print_process_list(idle_process);
+    print_process_list(p1);
 
-    scheduler_context_switch_asm(NULL, idle_process->esp);
+    /* we may want to call a schedule function here that will start 
+       the first process scheduled*/
+    scheduler_context_switch_asm(NULL, p1->esp);
 
     while (1);
 }

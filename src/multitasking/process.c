@@ -6,9 +6,9 @@
 
 static pid_t next_pid = 0;
 
-static const char *process_state_str(process_state_e state)
-{
+static const char *process_state_str(process_state_e state) {
     switch (state) {
+        case PROCESS_NEW:     return "NEW";
         case PROCESS_READY:   return "READY";
         case PROCESS_RUNNING: return "RUNNING";
         case PROCESS_BLOCKED: return "BLOCKED";
@@ -34,7 +34,7 @@ void print_process_list(process_t *head) {
     }
 }
 
-process_t * process_create(void (*entry)(void), size_t stack_size) {
+process_t * process_create(process_type_e type, void (*entry)(void), size_t stack_size) {
     void scheduler_thread_exit();
 
     process_t * process = kalloc(sizeof(process_t));
@@ -44,7 +44,8 @@ process_t * process_create(void (*entry)(void), size_t stack_size) {
     memset(process, 0, sizeof(process_t));
 
     process->pid = next_pid++;
-    process->status = PROCESS_RUNNING;
+    process->status = PROCESS_NEW;
+    process->type = type;
     process->esp = (uint32_t *)((uint32_t)kalloc(stack_size) + (stack_size - 1));
     /* Since we don't don't *call* entry we just use *ret* when entry is in the stack top, 
        the *ret* in the entry function would pop sheudler_thread_exit and redirect code to there */

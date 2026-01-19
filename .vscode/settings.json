@@ -33,6 +33,7 @@
         "span": "c",
         "random": "c",
         "tty.h": "c",
-        "scheduler.h": "c"
+        "scheduler.h": "c",
+        "process.h": "c"
     }
 }
