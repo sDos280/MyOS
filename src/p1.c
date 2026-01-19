@@ -3,7 +3,6 @@
 void p1_main() {
     uint32_t i = 0;
     
-    return;
     
     while (1) {
         print_int_padded(i, 0, ' ');
@@ -13,6 +12,6 @@ void p1_main() {
 
         i++;
 
-        if (i >= 10000) break;
+        if (i >= 5000) break;
     }
 }

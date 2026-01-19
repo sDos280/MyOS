@@ -8,6 +8,6 @@ extern void scheduler_context_switch_asm(uint32_t ** current_stack_pointer, uint
 extern void scheduler_start_thread_asm(uint32_t * thread_stack);
 void scheduler_add_processes_to_list(process_t * process);
 process_t * scheduler_get_next_process();
-void schduler_schedule();
+void scheduler_schedule();
 
 #endif // SCHEDULER_H

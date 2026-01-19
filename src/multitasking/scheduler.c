@@ -66,7 +66,7 @@ process_t * scheduler_get_next_process() {
     return current_process->next;
 }
 
-void schduler_schedule() {
+void scheduler_schedule() {
     /* Fix: There is a need to check what will happen if current process = next process */
     process_t * next_process = scheduler_get_next_process();
     process_t * current_process_copy = current_process;
