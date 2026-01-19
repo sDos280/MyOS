@@ -32,6 +32,8 @@
         "string_view": "c",
         "span": "c",
         "random": "c",
-        "tty.h": "c"
+        "tty.h": "c",
+        "scheduler.h": "c",
+        "process.h": "c"
     }
 }

@@ -6,6 +6,18 @@
 .extern sheduler_thread_exit
 
 .section .text
+// the scheduling function can be summerized to:
+// schedule:
+//     pusha
+//     move to other thread stack
+//     popa
+//     ret
+//
+// when each new thread starts with a stack like this:
+// ====== Stack High Adresses (32 bit) ====== 
+// entry
+// General registers
+// ====== Stack Lower Adresses (32 bit) ======
 scheduler_context_switch_asm:
     mov ecx, [4+esp]  // Pointer to current thread stack 
     mov edx, [8+esp]  // Next thread stack address
