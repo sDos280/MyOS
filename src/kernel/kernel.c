@@ -63,14 +63,12 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     scheduler_init();
 
-    scheduler_add_processes_to_list(p1);
-    scheduler_add_processes_to_list(p2);
+    scheduler_add_process_to_ready_queue(p1);
+    scheduler_add_process_to_ready_queue(p2);
 
     print_process_list(p1);
 
-    /* we may want to call a schedule function here that will start 
-       the first process scheduled*/
-    scheduler_context_switch_asm(NULL, p1->esp);
+    scheduler_schedule(); /* start scheduling */
 
     while (1);
 }

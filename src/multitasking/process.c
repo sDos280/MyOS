@@ -45,10 +45,7 @@ process_t * process_create(process_type_e type, void (*entry)(void), size_t stac
 
     process->pid = next_pid++;
     process->status = PROCESS_NEW;
-<<<<<<< HEAD
-=======
     process->type = type;
->>>>>>> 0a33b4d1f19e76007e4b0f18f6dbf3c0d1401826
     process->esp = (uint32_t *)((uint32_t)kalloc(stack_size) + (stack_size - 1));
     /* Since we don't don't *call* entry we just use *ret* when entry is in the stack top, 
        the *ret* in the entry function would pop sheudler_thread_exit and redirect code to there */
@@ -61,7 +58,7 @@ process_t * process_create(process_type_e type, void (*entry)(void), size_t stac
     *(--process->esp) = 0;      /* ebx */
     *(--process->esp) = 0;      /* edx */
     *(--process->esp) = 0;      /* ecx */
-    *(--process->esp) = 0;  /* eax */
+    *(--process->esp) = 0;      /* eax */
     
     process->next = NULL;
 
