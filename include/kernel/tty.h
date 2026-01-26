@@ -15,6 +15,8 @@
 #define TTY_IN_CHAR_QUEUE_SIZE 50
 #define TTY_IN_KEY_QUEUE_SIZE TTY_IN_CHAR_QUEUE_SIZE
 
+#define TTY_MAX_STRING_PRINT 1000
+
 typedef struct tty_struct {
     /* write position */
     uint32_t row;                                /* row of the next write position */
@@ -36,6 +38,7 @@ void tty_set_anker_state(tty_t * tty, uint8_t state);
 void tty_set_screen_row(tty_t * tty, int32_t row);
 void tty_clean_buffer(tty_t * tty);  /* write a char to the current write position */
 void tty_write_char(tty_t * tty, char c); /* set the current */
+void tty_write_string(tty_t * tty, char * str); /* write a string, max number of chars to print is TTY_MAX_STRING_PRINT */
 void tty_putchar(tty_t * tty, char c);
 char tty_getchar(tty_t * tty);
 void tty_put_key_press(tty_t * tty, uint8_t key);

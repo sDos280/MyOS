@@ -89,6 +89,13 @@ void tty_write_char(tty_t * tty, char c) {
     if (flush_screen == 1) screen_flush_tty(tty);
 }
 
+void tty_write_string(tty_t * tty, char * str) {
+    for (size_t i = 0; i < TTY_MAX_STRING_PRINT; i++) {
+        if (str[i] == '\0') break;
+        tty_write_char(tty, str[i]);
+    }
+}
+
 static uint8_t is_in_char_queue_empty(tty_t * tty) {
     return tty->head_char_queue == -1;
 }

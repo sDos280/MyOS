@@ -24,8 +24,8 @@ extern uint32_t __kernel_end_v_no_heap;
 void static print_page_directory(page_directory_t* dir) {
     print_clean_screen();
 
-    print_const_string("Page Directory Table:\n");
-    print_const_string("====================\n");
+    printf("Page Directory Table:\n");
+    printf("====================\n");
 
     for (uint32_t pd_idx = 0; pd_idx < PAGING_ENTRIES_SIZE; pd_idx++) {
         page_table_t* table = dir->tables[pd_idx];
@@ -34,8 +34,8 @@ void static print_page_directory(page_directory_t* dir) {
         printf("PD Entry %d: Table at %x\n", pd_idx, (uint32_t)table);
 
         // Print table header
-        print_const_string("  PT Index | Present | R/W | User | Frame\n");
-        print_const_string("  --------------------------------------\n");
+        printf("  PT Index | Present | R/W | User | Frame\n");
+        printf("  --------------------------------------\n");
 
         for (uint32_t pt_idx = 0; pt_idx < PAGING_ENTRIES_SIZE; pt_idx++) {
             page_entry_t* entry = &table->entries[pt_idx];
@@ -57,11 +57,11 @@ void static print_page_directory(page_directory_t* dir) {
             printf("%x\n", entry->frame);
         }
 
-        print_const_string("\n");
+        printf("\n");
     }
 
-    print_const_string("====================\n");
-    print_const_string("End of page directory\n");
+    printf("====================\n");
+    printf("End of page directory\n");
 }
 
 void paging_init() {
