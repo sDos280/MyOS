@@ -9,8 +9,7 @@ idt_gate_t idt_entries[256];
 descriptor_ptr_t idt_ptr;
 isr_handler interrupt_handlers[256];
 
-void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, uint16_t flag)
-{
+void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, uint16_t flag) {
     memset(gdt_entry, 0, sizeof(gdt_entry_t)); // Clear out the descriptor first
     gdt_entry->limit_low    = (limit & 0x0000FFFF);         // set limit bits 15:0
     gdt_entry->base_low     = (base  & 0x0000FFFF);         // set base bits 15:0
@@ -21,8 +20,7 @@ void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, 
     gdt_entry->base_high    = (base  >> 24) & 0x000000FF; // set base bits 31:24
 }
 
-void gdt_init()
-{
+void gdt_init() {
     /* Note: This os woudn't use segmentation, and all protected mechanisms will be handled by paging */
     initiate_descriptor(&gdt_entries[0], 0, 0, 0);                // Null segment
     initiate_descriptor(&gdt_entries[1], 0, 0xFFFFFFFF, GDT_CODE_PL0); // Code segment
@@ -34,8 +32,7 @@ void gdt_init()
     flush_gdt();
 }
 
-void initialize_gate(uint32_t idt_entry_number, uint32_t base, uint16_t sel, uint8_t flags)
-{
+void initialize_gate(uint32_t idt_entry_number, uint32_t base, uint16_t sel, uint8_t flags) {
     idt_gate_t *irq_gate = &idt_entries[idt_entry_number];
 
     memset(irq_gate, 0, sizeof(idt_gate_t)); // Clear out the descriptor first
@@ -47,7 +44,7 @@ void initialize_gate(uint32_t idt_entry_number, uint32_t base, uint16_t sel, uin
     irq_gate->base_high= (base >> 16) & 0xFFFF;
 }
 
-void idt_init(){
+void idt_init() {
     idt_ptr.limit = (sizeof(idt_gate_t) * 256) -1;
     idt_ptr.base  = (uint32_t)&idt_entries;
 

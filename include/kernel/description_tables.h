@@ -105,7 +105,7 @@ typedef struct cpu_status_struct {
     uint32_t eip, cs, eflags;
 } cpu_status_t;
 
-typedef void (*isr_handler)(cpu_status_t*);
+typedef uint32_t (*isr_handler)(cpu_status_t*);
 
 void initiate_descriptor(gdt_entry_t *gdt_entry, uint32_t base, uint32_t limit, uint16_t flag);  // Initialize a GDT entry
 void gdt_init();  // Setup the GDT
