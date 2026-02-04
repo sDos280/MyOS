@@ -55,4 +55,7 @@ dkms.conf
 *.dwo
 
 # build directory
-build/*.*   
+build/*.*
+
+# VS code
+.vscode/*.*

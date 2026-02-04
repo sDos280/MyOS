@@ -3,6 +3,7 @@
 
 #include "kernel/tty.h"
 #include "types.h"
+#include "arg.h"
 
 tty_t * print_get_tty();
 void print_set_tty(tty_t * tty);
@@ -13,6 +14,7 @@ void put_key_press(uint8_t key);
 uint8_t get_key_press();
 
 void printf(const char* format, ...);
+int vsprintf(char *buf, const char *fmt, va_list args);
 void print_hexdump(const void *data, size_t size); // print hexdump of something
 
 

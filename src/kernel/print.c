@@ -1,5 +1,6 @@
 #include "kernel/tty.h"
 #include "kernel/print.h"
+#include "kernel/print.h"
 #include "arg.h"
 #include "utils.h"
 

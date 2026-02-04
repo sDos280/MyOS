@@ -4,6 +4,7 @@
 #include "io/port.h"
 #include "io/pic.h"
 #include "utils.h"
+#include "errno.h"
 
 /* =========================================================
                         MACROS
@@ -88,7 +89,7 @@ typedef struct ata_responce_struct {
 } ata_responce_t;
 
 /* Global static functions */
-static void ata_response_handler(cpu_status_t *regs);
+static uint32_t ata_response_handler(cpu_status_t *regs);
 
 /* Global driver request/response state */
 ata_request_t  ata_request;
@@ -394,11 +395,13 @@ uint8_t ata_flush_cache(ata_drive_t *drive) {
  *   - Signals completion to waiting caller
  *   - Sends EOI to the :contentReference[oaicite:0]{index=0}
  */
-static void ata_response_handler(cpu_status_t *regs) {
+static uint32_t ata_response_handler(cpu_status_t *regs) {
     uint8_t st;
+    uint32_t err = -ENO;
 
     if (!ata_request.pending) {
         printf("ATA: IRQ triggered but no request was pending!\n");
+        err = -EIRQ;
         goto irq_end;
     }
 
@@ -421,14 +424,17 @@ static void ata_response_handler(cpu_status_t *regs) {
             break;
         default:
             printf("ATA Drive Error: Unknown command\n");
+            err = -EIRQ;
             break;
     }
 
     ata_responce.done = 1;
 
 irq_end:
+    /* Review: we should probably not send the pic eio here */
     outb(PIC2_COMMAND, PIC_EOI);
     outb(PIC1_COMMAND, PIC_EOI);
+    return err;
 }
 
 /* =========================================================

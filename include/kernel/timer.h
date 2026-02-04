@@ -57,7 +57,7 @@ uint32_t timer_time_seconds();
  * Main PIT interrupt handler (IRQ0).
  * Handles timekeeping and scheduler ticks.
  */
-void timer_interrupt_handler(cpu_status_t *regs);
+uint32_t timer_interrupt_handler(cpu_status_t *regs);
 
 /**
  * Initializes the PIT and registers the IRQ handler.

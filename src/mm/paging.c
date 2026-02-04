@@ -4,6 +4,7 @@
 #include "mm/pmm.h"
 #include "mm/kheap.h"
 #include "utils.h"
+#include "errno.h"
 
 // paging breaks down a linear address: | Table Entry (10 bits) | Page Entry (10 bits) | Offset (12 bits) |
 #define PAGE_OFFSET(addr)  (addr & 0xFFF)
@@ -97,8 +98,7 @@ void switch_page_directory(page_directory_t * dir) {
     asm volatile("mov %0, %%cr0":: "r"(cr0));
 }
 
-void page_fault_handler(cpu_status_t* regs) {
-    
+uint32_t page_fault_handler(cpu_status_t* regs) {
     // A page fault has occurred.
     // The faulting address is stored in the CR2 register.
     uint32_t faulting_address;
@@ -119,6 +119,8 @@ void page_fault_handler(cpu_status_t* regs) {
     if (reserved) {printf("reserved ");}
     printf(") at %p. eip is %p\n", faulting_address, regs->eip);
     PANIC("Page fault");
+
+    return -EPF;
 }
 
 void paging_map_page(void* vaddr, void* paddr, uint32_t page_flags) {

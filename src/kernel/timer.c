@@ -2,6 +2,7 @@
 #include "io/port.h"
 #include "io/pic.h"
 #include "multitasking/scheduler.h"
+#include "errno.h"
 
 /* =========================================================
                     CONSTANT DEFINITIONS
@@ -92,7 +93,7 @@ uint32_t timer_time_seconds() {
  *  - Drive scheduler preemption
  *  - Send End-Of-Interrupt (EOI) to PIC
  */
-void timer_interrupt_handler(cpu_status_t *regs) {
+uint32_t timer_interrupt_handler(cpu_status_t *regs) {
     /* Count raw timer ticks */
     tick++;
 
@@ -122,6 +123,8 @@ void timer_interrupt_handler(cpu_status_t *regs) {
     if (tick % timer_hz == 0) {
         scheduler_schedule();
     }
+
+    return -ENO;
 }
 
 
