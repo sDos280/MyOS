@@ -16,6 +16,6 @@
 void syscall_init();
 uint32_t syscall_handler(cpu_status_t * regs);
 void * mmap(void *addr, size_t length, uint32_t flags);
-void * mmap_irq_handler(void *addr, size_t length, uint32_t flags);
+void * sys_mmap(void *addr, size_t length, uint32_t flags);
 
 #endif // SYSCALL_H

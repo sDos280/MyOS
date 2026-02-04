@@ -105,6 +105,8 @@ void idt_init() {
     initialize_gate(47, (uint32_t)isr47, 0x08, IDT_FLAGS_PRESENT | IDT_TYPE_INTERRUPT | IDT_DPL_KERNEL);
     initialize_gate(48, (uint32_t)isr48, 0x08, IDT_FLAGS_PRESENT | IDT_TYPE_INTERRUPT | IDT_DPL_KERNEL);
 
+    initialize_gate(0x80, (uint32_t)isr128, 0x08, IDT_FLAGS_PRESENT | IDT_TYPE_INTERRUPT | IDT_DPL_KERNEL);
+
     flush_idt();
 }
 

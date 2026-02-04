@@ -60,6 +60,7 @@ typedef struct __attribute__ ((aligned (0x1000))) page_directory_struct {
 void paging_init();
 void switch_page_directory(page_directory_t * dir);  // switch to the new page directory
 uint32_t page_fault_handler(cpu_status_t* regs);  // the page fault handler
+uint32_t general_protection_fault_handler(cpu_status_t* regs); // the general protection fault handler
 
 void paging_map_page(void* vaddr, void* paddr, uint32_t page_flags);
 void paging_unmap_page(void* vaddr);

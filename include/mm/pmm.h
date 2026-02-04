@@ -9,6 +9,7 @@
 void pmm_init();
 
 void* pmm_alloc_frame_addr(void * paddr);  /* paddr - the address to try to allocate from the page, should be frame aligned */
+void* pmm_alloc_frames_addr(void * paddr, size_t count); /* paddr - the address to try to allocate from the page, should be frame aligned */
 void* pmm_alloc_frame();
 void pmm_free_frame(void* paddr);
 

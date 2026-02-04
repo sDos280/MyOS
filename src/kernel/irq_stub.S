@@ -82,6 +82,7 @@ ISR_NOERRCODE 45
 ISR_NOERRCODE 46
 ISR_NOERRCODE 47
 ISR_NOERRCODE 48
+ISR_NOERRCODE 128
 
 // This is our common ISR stub. It saves the processor state, sets
 // up for kernel mode segments, calls the C-level fault handler,

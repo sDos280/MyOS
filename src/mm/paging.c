@@ -67,6 +67,7 @@ void static print_page_directory(page_directory_t* dir) {
 
 void paging_init() {
     /* register fault handle first, so in case of error will found the problem fast */
+    register_interrupt_handler(13, general_protection_fault_handler);
     register_interrupt_handler(14, page_fault_handler);
 
     /* there is a need to setup this before the use of paging_map_page */
@@ -123,6 +124,52 @@ uint32_t page_fault_handler(cpu_status_t* regs) {
     return -EPF;
 }
 
+uint32_t general_protection_fault_handler(cpu_status_t* regs) {
+    // Error code format for #GP:
+    // bit 0: EXT  (1 = came from external event, 0 = from software)
+    // bits 1-2: IDT (1 = IDT, 2 = LDT, 3 = GDT)
+    // bits 3-15: selector index (if EXT = 0)
+
+    uint32_t err = regs->err_code;
+
+    int ext = err & 0x1;
+    int table = (err >> 1) & 0x3;      // 0,1,2,3
+    uint16_t selector = err >> 3;      // selector index
+
+    printf("General Protection Fault! ( ");
+
+    if (ext) {
+        printf("external ");
+    } else {
+        printf("software ");
+    }
+
+    switch (table) {
+        case 0:
+            printf("GDT ");
+            break;
+        case 1:
+            printf("IDT ");
+            break;
+        case 2:
+            printf("LDT ");
+            break;
+        case 3:
+            printf("reserved-table ");
+            break;
+    }
+
+    if (!ext) {
+        printf("selector=%#x ", selector);
+    }
+
+    printf(") at eip=%p\n", regs->eip);
+
+    PANIC("General Protection Fault");
+
+    return -EGPF;
+}
+
 void paging_map_page(void* vaddr, void* paddr, uint32_t page_flags) {
     uint32_t temp_addr;
 
@@ -162,7 +209,7 @@ void* paging_get_mapping(void* vaddr) {
 
     if (t == NULL) return NULL;
 
-    return t->entries[PAGE_INDEX((uint32_t)vaddr)].frame << 12;
+    return (void*)(t->entries[PAGE_INDEX((uint32_t)vaddr)].frame << 12);
 }
 
 page_directory_t * paging_get_current_directory() {

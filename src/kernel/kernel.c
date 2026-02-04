@@ -3,6 +3,7 @@
 #include "kernel/print.h"
 #include "kernel/timer.h"
 #include "kernel/panic.h"
+#include "kernel/syscall.h"
 #include "mm/paging.h"
 #include "mm/kheap.h"
 #include "mm/pmm.h"
@@ -52,12 +53,14 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     timer_init(1000); // Initialize timer to 1000Hz
     printf("Timer initialized.\n");
     
+    syscall_init();  // initialize the syscall module 
+
     keyboard_driver_init();  // initialize the keyboard driver
     printf("Keyboard driver initialized.\n");
 
     ata_driver_init();  // initiate the ata driver
     printf("Ata driver initialized.\n");
-    
+
     process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);
 

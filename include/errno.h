@@ -7,5 +7,6 @@
 #define EGENERAL        1       // General Error.
 #define EIRQ            2       // IRQ Error.
 #define EPF             3       // Page Fault.
+#define EGPF            4       // General protection fault
 
 #endif // ERRNO_H

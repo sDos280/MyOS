@@ -8,8 +8,11 @@ void syscall_init() {
     register_interrupt_handler(0x80, syscall_handler);
 }
 
-void * mmap_irq_handler(void *addr, size_t length, uint32_t flags) {
+void * sys_mmap(void *addr, size_t length, uint32_t flags) {
     uint32_t pflags = 0;
+
+    // Note: we may want to, pick a free virtual address
+    if (addr == NULL) return NULL;
 
     if (flags | PPROT_WRITE)
         pflags |= PG_WRITABLE; 
@@ -19,11 +22,15 @@ void * mmap_irq_handler(void *addr, size_t length, uint32_t flags) {
 
     pflags |= PG_PRESENT;
 
-    void * paddr = pmm_alloc_frames((length + PAGE_SIZE) / PAGE_SIZE);
+    // Map pages (simplified)
+    for (size_t i = 0; i < length; i += PAGE_SIZE) {
+        /* Fix: should probably free all the other that were allocated */
+        void *phys = pmm_alloc_frame();
 
-    paging_map_page(addr, paddr, pflags);
+        paging_map_page((void *)addr + i, (void *)phys, pflags);
+    }
 
-    /* should probably return something better */
+    /* Fix: should return differently according to sucsses */
     return addr;
 }
 
@@ -32,7 +39,7 @@ uint32_t syscall_handler(cpu_status_t * regs) {
 
     switch (regs->eax) {
         case SYSC_MMAP:
-            out = mmap_irq_handler(regs->ebx, regs->ecx, regs->edx);
+            out = sys_mmap(regs->ebx, regs->ecx, regs->edx);
             break;
         
         default:
