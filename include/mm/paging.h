@@ -65,12 +65,6 @@ void paging_map_page(void* vaddr, void* paddr, uint32_t page_flags);
 void paging_unmap_page(void* vaddr);
 void* paging_get_mapping(void* vaddr);
 
-void* paging_alloc_page(uint64_t flags);
-void  paging_free_page(void* vaddr);
-
-void* paging_alloc_pages(size_t count, uint64_t flags);
-void  paging_free_pages(void* vaddr, size_t count);
-
 page_directory_t * paging_get_current_directory();
 
 #endif // PAGING_H

@@ -147,14 +147,22 @@ void paging_map_page(void* vaddr, void* paddr, uint32_t page_flags) {
 
 void paging_unmap_page(void* vaddr) {
     /* check if there is a table for vaddr */
-    /* FIX: ther may be a memory leak, since we don't free the tables */
+    /* FIX: there may be a memory leak, since we don't free the tables */
     page_table_t * t = current_directory->tables[TABLE_INDEX((uint32_t)vaddr)];
 
-    if (t == NULL) return; /* no need to unmap */
+    if (t == NULL) return; /* no need to un-map */
 
     /* unmap the page */
     page_entry_t * p = &(current_directory->tables[TABLE_INDEX((uint32_t)vaddr)]->entries[PAGE_INDEX((uint32_t)vaddr)]);
     memset(p, 0, sizeof(page_entry_t));
+}
+
+void* paging_get_mapping(void* vaddr) {
+    page_table_t * t = current_directory->tables[TABLE_INDEX((uint32_t)vaddr)];
+
+    if (t == NULL) return NULL;
+
+    return t->entries[PAGE_INDEX((uint32_t)vaddr)].frame << 12;
 }
 
 page_directory_t * paging_get_current_directory() {
