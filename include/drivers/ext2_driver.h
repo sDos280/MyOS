@@ -16,9 +16,8 @@
 #ifndef EXT2_DRIVER_H
 #define EXT2_DRIVER_H
 
-#include "types.h"
 #include "drivers/ata_driver.h"
-
+#include "types.h"
 
 /* =========================================================================
  * CONSTANTS & MAGIC VALUES
@@ -297,7 +296,6 @@ typedef struct __attribute__((packed)) ext2_dir_entry {
 struct ext2_fs {
     /* --- ATA backing device --- */
     ata_drive_t     *drive;
-    uint32_t         partition_lba;
 
     /* --- Superblock --- */
     ext2_superblock_t superblock;
