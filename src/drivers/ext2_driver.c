@@ -1,6 +1,7 @@
 #include "mm/kheap.h"
 #include "drivers/ext2_driver.h"
 #include "bitmap_util.h"
+#include "utils.h"
 
 /* NOTE:
  *  1. we will only have one copy of the superblock, the one on the start, 1024 bytes from the start of the drive */
@@ -87,10 +88,138 @@ ext2_error_t ext2_dir_close(ext2_dir_t *dir);*/
 /* =========================================================================
  * INODE ACCESS
  * ========================================================================= */
-/*ext2_error_t ext2_inode_read(ext2_fs_t *fs, uint32_t ino, ext2_inode_t *inode);
-ext2_error_t ext2_inode_write(ext2_fs_t *fs, uint32_t ino, const ext2_inode_t *inode);
-ext2_error_t ext2_inode_alloc(ext2_fs_t *fs, uint32_t preferred_group, uint32_t *ino_out);
-ext2_error_t ext2_inode_free(ext2_fs_t *fs, uint32_t ino);
+ext2_error_t ext2_inode_read(ext2_fs_t *fs, uint32_t ino, ext2_inode_t *inode) {
+    if (!fs || !inode)
+        return EXT2_ERR_INVALID;
+    
+    /* find the inode table */
+    /* find the group index of the inode table */
+    uint32_t group_idx    = (ino - 1) / fs->superblock.s_inodes_per_group;
+
+    if (group_idx >= fs->num_groups)  // add this
+        return EXT2_ERR_INVALID;
+    /* find the inner local index of the inode entry in the inode table */
+    uint32_t local_idx    = (ino - 1) % fs->superblock.s_inodes_per_group;
+    /* caluclate the block offset from the start of the table that the inode entry resides */
+    uint32_t block_offset = (local_idx * fs->superblock.s_inode_size) / fs->block_size;
+    /* caluclate the block index that the inode entry resides in */
+    uint32_t inode_table_block_no     = fs->bgdt[group_idx].bg_inode_table + block_offset;
+
+    uint8_t *block_buf = (uint8_t *)kalloc(fs->block_size);
+    if (!block_buf)
+        return EXT2_ERR_NO_MEM;
+    
+    ext2_error_t err = ext2_block_read(fs, inode_table_block_no, block_buf);
+    if (err != EXT2_OK) {
+        kfree(block_buf);
+        return err;
+    }
+
+    uint32_t inode_entry_offset = (local_idx % fs->inodes_per_block) * fs->superblock.s_inode_size;
+    memcpy(inode, block_buf + inode_entry_offset, sizeof(ext2_inode_t));
+
+    kfree(block_buf);
+    return EXT2_OK;
+}
+
+ext2_error_t ext2_inode_write(ext2_fs_t *fs, uint32_t ino, const ext2_inode_t *inode) {
+    if (!fs || !inode)
+        return EXT2_ERR_INVALID;
+    
+    /* find the inode table */
+    /* find the group index of the inode table */
+    uint32_t group_idx    = (ino - 1) / fs->superblock.s_inodes_per_group;
+
+    if (group_idx >= fs->num_groups)  // add this
+        return EXT2_ERR_INVALID;
+    /* find the inner local index of the inode entry in the inode table */
+    uint32_t local_idx    = (ino - 1) % fs->superblock.s_inodes_per_group;
+    /* caluclate the block offset from the start of the table that the inode entry resides */
+    uint32_t block_offset = (local_idx * fs->superblock.s_inode_size) / fs->block_size;
+    /* caluclate the block index that the inode entry resides in */
+    uint32_t inode_table_block_no     = fs->bgdt[group_idx].bg_inode_table + block_offset;
+
+    uint8_t *block_buf = (uint8_t *)kalloc(fs->block_size);
+    if (!block_buf)
+        return EXT2_ERR_NO_MEM;
+    
+    ext2_error_t err = ext2_block_read(fs, inode_table_block_no, block_buf);
+    if (err != EXT2_OK) {
+        kfree(block_buf);
+        return err;
+    }
+
+    uint32_t inode_entry_offset = (local_idx % fs->inodes_per_block) * fs->superblock.s_inode_size;
+    memcpy(block_buf + inode_entry_offset, inode, sizeof(ext2_inode_t));
+
+    kfree(block_buf);
+    return EXT2_OK;
+}
+
+ext2_error_t ext2_inode_alloc(ext2_fs_t *fs, uint32_t preferred_group, uint32_t *ino_out)
+{
+    if (!fs || !ino_out)
+        return EXT2_ERR_INVALID;
+
+    if (fs->read_only)
+        return EXT2_ERR_READ_ONLY;
+
+    if (fs->superblock.s_free_inodes_count == 0)
+        return EXT2_ERR_NO_INODES;
+
+    uint8_t *bitmap = (uint8_t *)kmalloc(fs->block_size);
+    if (!bitmap)
+        return EXT2_ERR_NO_MEM;
+
+    for (uint32_t i = 0; i < fs->num_groups; i++) {
+        uint32_t group_idx = (preferred_group + i) % fs->num_groups;
+        ext2_block_group_descriptor_t *bgd = &fs->bgdt[group_idx];
+
+        if (bgd->bg_free_inodes_count == 0)
+            continue;
+
+        ext2_error_t err = ext2_block_read(fs, bgd->bg_inode_bitmap, bitmap);
+        if (err != EXT2_OK) {
+            kfree(bitmap);
+            return err;
+        }
+
+        /* Last group may have fewer inodes than s_inodes_per_group */
+        uint32_t inodes_in_group = (group_idx == fs->num_groups - 1)
+            ? (fs->superblock.s_inodes_count
+               - (group_idx * fs->superblock.s_inodes_per_group))
+            : fs->superblock.s_inodes_per_group;
+
+        uint32_t local_idx;
+        if (!bitmap_find_first_clear(bitmap, inodes_in_group, &local_idx))
+            continue;
+
+        bitmap_set(bitmap, local_idx);
+
+        err = ext2_block_write(fs, bgd->bg_inode_bitmap, bitmap);
+        if (err != EXT2_OK) {
+            kfree(bitmap);
+            return err;
+        }
+
+        bgd->bg_free_inodes_count--;
+        fs->bgdt_dirty = 1;
+
+        fs->superblock.s_free_inodes_count--;
+        fs->sb_dirty = 1;
+
+        /* inode numbers are 1-based */
+        *ino_out = (group_idx * fs->superblock.s_inodes_per_group) + local_idx + 1;
+
+        kfree(bitmap);
+        return EXT2_OK;
+    }
+
+    kfree(bitmap);
+    return EXT2_ERR_NO_INODES;
+}
+
+/*ext2_error_t ext2_inode_free(ext2_fs_t *fs, uint32_t ino);
 ext2_error_t ext2_inode_free_blocks(ext2_fs_t *fs, ext2_inode_t *inode);
 ext2_error_t ext2_inode_resolve_block(ext2_fs_t *fs, const ext2_inode_t *inode, uint32_t logical_block, uint32_t *phys_block);
 uint64_t     ext2_inode_get_size(ext2_fs_t *fs, const ext2_inode_t *inode);*/
