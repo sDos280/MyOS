@@ -238,8 +238,7 @@ fail:
 }
 
 ext2_error_t ext2_inode_resolve_block(ext2_fs_t *fs, const ext2_inode_t *inode,
-                                       uint32_t logical_block, uint32_t *phys_block)
-{
+                                       uint32_t logical_block, uint32_t *phys_block) {
     if (!fs || !inode || !phys_block)
         return EXT2_ERR_INVALID;
 
@@ -302,7 +301,17 @@ ext2_error_t ext2_inode_resolve_block(ext2_fs_t *fs, const ext2_inode_t *inode,
     /* Beyond the maximum file size ext2 can represent */
     return EXT2_ERR_OVERFLOW;
 }
-/*uint64_t     ext2_inode_get_size(ext2_fs_t *fs, const ext2_inode_t *inode);*/
+
+uint64_t ext2_inode_get_size(ext2_fs_t *fs, const ext2_inode_t *inode) {
+    if (!fs || !inode)
+        return 0;
+
+    if (fs->superblock.s_feature_ro_compat & EXT2_FEATURE_RO_COMPAT_LARGE_FILE)
+        return (uint64_t)inode->i_size
+             | ((uint64_t)inode->i_dir_acl << 32);
+
+    return (uint64_t)inode->i_size;
+}
 
 /* =========================================================================
  * INTERNAL HELPERS
