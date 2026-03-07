@@ -7,6 +7,9 @@ static ext2_error_t free_direct_blocks(ext2_fs_t *fs, ext2_inode_t *inode);
 static ext2_error_t free_single_indirect(ext2_fs_t *fs, uint32_t block_no, uint8_t *buf);
 static ext2_error_t free_double_indirect(ext2_fs_t *fs, uint32_t block_no, uint8_t *buf1, uint8_t *buf2);
 static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no, uint8_t *buf1, uint8_t *buf2, uint8_t *buf3);
+static ext2_error_t resolve_single_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t *phys_block);
+static ext2_error_t resolve_double_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t *phys_block);
+static ext2_error_t resolve_triple_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t *phys_block);
 
 /* =========================================================================
  * INODE ACCESS
@@ -234,8 +237,72 @@ fail:
     return err;
 }
 
-/*ext2_error_t ext2_inode_resolve_block(ext2_fs_t *fs, const ext2_inode_t *inode, uint32_t logical_block, uint32_t *phys_block);
-uint64_t     ext2_inode_get_size(ext2_fs_t *fs, const ext2_inode_t *inode);*/
+ext2_error_t ext2_inode_resolve_block(ext2_fs_t *fs, const ext2_inode_t *inode,
+                                       uint32_t logical_block, uint32_t *phys_block)
+{
+    if (!fs || !inode || !phys_block)
+        return EXT2_ERR_INVALID;
+
+    /* ------------------------------------------------------------------ */
+    /* Region boundaries                                                   */
+    /* ------------------------------------------------------------------ */
+    uint32_t direct_limit  = 12;
+    uint32_t single_limit  = direct_limit + fs->ptrs_per_block;
+    uint32_t double_limit  = single_limit + (fs->ptrs_per_block * fs->ptrs_per_block);
+    uint32_t triple_limit  = double_limit + (fs->ptrs_per_block * fs->ptrs_per_block
+                                             * fs->ptrs_per_block);
+
+    /* ------------------------------------------------------------------ */
+    /* Direct blocks [0, 11]                                               */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < direct_limit) {
+        *phys_block = inode->i_block[logical_block];
+        return EXT2_OK;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Singly indirect [12, 12 + ptrs_per_block)                          */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < single_limit) {
+        if (inode->i_block[12] == 0) {
+            *phys_block = 0;    /* sparse hole */
+            return EXT2_OK;
+        }
+
+        uint32_t idx = logical_block - direct_limit;
+        return resolve_single_indirect(fs, inode->i_block[12], idx, phys_block);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Doubly indirect [single_limit, double_limit)                        */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < double_limit) {
+        if (inode->i_block[13] == 0) {
+            *phys_block = 0;
+            return EXT2_OK;
+        }
+
+        uint32_t idx = logical_block - single_limit;
+        return resolve_double_indirect(fs, inode->i_block[13], idx, phys_block);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Triply indirect [double_limit, triple_limit)                        */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < triple_limit) {
+        if (inode->i_block[14] == 0) {
+            *phys_block = 0;
+            return EXT2_OK;
+        }
+
+        uint32_t idx = logical_block - double_limit;
+        return resolve_triple_indirect(fs, inode->i_block[14], idx, phys_block);
+    }
+
+    /* Beyond the maximum file size ext2 can represent */
+    return EXT2_ERR_OVERFLOW;
+}
+/*uint64_t     ext2_inode_get_size(ext2_fs_t *fs, const ext2_inode_t *inode);*/
 
 /* =========================================================================
  * INTERNAL HELPERS
@@ -253,6 +320,9 @@ static ext2_error_t free_direct_blocks(ext2_fs_t *fs, ext2_inode_t *inode) {
     return EXT2_OK;
 }
 
+/*
+ * Free all the blocks in the nested blocks in the single indirect block, and the block itself.
+ */
 static ext2_error_t free_single_indirect(ext2_fs_t *fs, uint32_t block_no,
                                           uint8_t *buf) {
     ext2_error_t err = ext2_block_read(fs, block_no, buf);
@@ -273,6 +343,9 @@ static ext2_error_t free_single_indirect(ext2_fs_t *fs, uint32_t block_no,
     return ext2_block_free(fs, block_no);
 }
 
+/*
+ * Free all the blocks in the nested blocks in the double indirect block, and the block itself.
+ */
 static ext2_error_t free_double_indirect(ext2_fs_t *fs, uint32_t block_no,
                                           uint8_t *buf1, uint8_t *buf2) {
     ext2_error_t err = ext2_block_read(fs, block_no, buf1);
@@ -293,6 +366,9 @@ static ext2_error_t free_double_indirect(ext2_fs_t *fs, uint32_t block_no,
     return ext2_block_free(fs, block_no);
 }
 
+/*
+ * Free all the blocks in the nested blocks in the triple indirect block, and the block itself.
+ */
 static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no,
                                           uint8_t *buf1, uint8_t *buf2,
                                           uint8_t *buf3) {
@@ -312,4 +388,89 @@ static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no,
 
     /* Free the triply indirect block itself */
     return ext2_block_free(fs, block_no);
+}
+
+/*
+ * Read one block pointer at position idx from a singly indirect block.
+ */
+static ext2_error_t resolve_single_indirect(ext2_fs_t *fs, uint32_t indirect_block,
+                                             uint32_t idx, uint32_t *phys_block)
+{
+    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    if (!buf)
+        return EXT2_ERR_NO_MEM;
+
+    ext2_error_t err = ext2_block_read(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    *phys_block = ((uint32_t *)buf)[idx];
+
+    kfree(buf);
+    return EXT2_OK;
+}
+
+/*
+ * Resolve a logical index within a doubly indirect block.
+ * idx is relative to the start of the doubly indirect region.
+ */
+static ext2_error_t resolve_double_indirect(ext2_fs_t *fs, uint32_t indirect_block,
+                                             uint32_t idx, uint32_t *phys_block)
+{
+    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    if (!buf)
+        return EXT2_ERR_NO_MEM;
+
+    ext2_error_t err = ext2_block_read(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    uint32_t l1_idx       = idx / fs->ptrs_per_block;
+    uint32_t l2_idx       = idx % fs->ptrs_per_block;
+    uint32_t l1_block     = ((uint32_t *)buf)[l1_idx];
+
+    kfree(buf);
+
+    if (l1_block == 0) {
+        *phys_block = 0;    /* sparse hole */
+        return EXT2_OK;
+    }
+
+    return resolve_single_indirect(fs, l1_block, l2_idx, phys_block);
+}
+
+/*
+ * Resolve a logical index within a triply indirect block.
+ * idx is relative to the start of the triply indirect region.
+ */
+static ext2_error_t resolve_triple_indirect(ext2_fs_t *fs, uint32_t indirect_block,
+                                             uint32_t idx, uint32_t *phys_block)
+{
+    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    if (!buf)
+        return EXT2_ERR_NO_MEM;
+
+    ext2_error_t err = ext2_block_read(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    uint32_t ptrs_per_dind = fs->ptrs_per_block * fs->ptrs_per_block;
+    uint32_t l1_idx        = idx / ptrs_per_dind;
+    uint32_t l2_idx        = idx % ptrs_per_dind;
+    uint32_t l1_block      = ((uint32_t *)buf)[l1_idx];
+
+    kfree(buf);
+
+    if (l1_block == 0) {
+        *phys_block = 0;    /* sparse hole */
+        return EXT2_OK;
+    }
+
+    return resolve_double_indirect(fs, l1_block, l2_idx, phys_block);
 }
