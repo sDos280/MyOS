@@ -6,14 +6,19 @@
 /* NOTE:
  *  1. we will only have one copy of the superblock, the one on the start, 1024 bytes from the start of the drive */
 
+static ext2_error_t free_direct_blocks(ext2_fs_t *fs, ext2_inode_t *inode);
+static ext2_error_t free_single_indirect(ext2_fs_t *fs, uint32_t block_no, uint8_t *buf);
+static ext2_error_t free_double_indirect(ext2_fs_t *fs, uint32_t block_no, uint8_t *buf1, uint8_t *buf2);
+static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no, uint8_t *buf1, uint8_t *buf2, uint8_t *buf3);
+
 /* =========================================================================
  * FILESYSTEM LIFECYCLE
  * ========================================================================= */
-ext2_fs_t   *ext2_mount(ata_drive_t *drive, uint32_t flags);
+/*ext2_fs_t   *ext2_mount(ata_drive_t *drive, uint32_t flags);
 ext2_error_t ext2_unmount(ext2_fs_t *fs);
 ext2_error_t ext2_remount(ext2_fs_t *fs, uint32_t flags);
 ext2_error_t ext2_flush(ext2_fs_t *fs);
-ext2_error_t ext2_last_error(void);
+ext2_error_t ext2_last_error(void);*/
 ext2_error_t ext2_get_superblock(ext2_fs_t *fs, ext2_superblock_t *sb) {
     if (fs == NULL || sb == NULL)
         return EXT2_ERR_INVALID;
@@ -225,91 +230,52 @@ ext2_error_t ext2_inode_alloc(ext2_fs_t *fs, uint32_t preferred_group, uint32_t 
     return EXT2_ERR_NO_INODES;
 }
 
-/*ext2_error_t ext2_inode_free(ext2_fs_t *fs, uint32_t ino);*/
+ext2_error_t ext2_inode_free(ext2_fs_t *fs, uint32_t ino) {
+    if (!fs)
+        return EXT2_ERR_INVALID;
 
-/* =========================================================================
- * INTERNAL HELPERS
- * ========================================================================= */
+    if (fs->read_only)
+        return EXT2_ERR_READ_ONLY;
+    
+    /* find the group index of the inode table */
+    uint32_t group_idx    = (ino - 1) / fs->superblock.s_inodes_per_group;
 
-static ext2_error_t free_direct_blocks(ext2_fs_t *fs, ext2_inode_t *inode) {
-    for (uint32_t i = 0; i < 12; i++) {
-        if (inode->i_block[i] == 0)
-            continue;
+    if (group_idx >= fs->num_groups)  // add this
+        return EXT2_ERR_INVALID;
+    /* find the inner local index of the inode entry in the inode table */
+    uint32_t local_idx    = (ino - 1) % fs->superblock.s_inodes_per_group;
+    ext2_block_group_descriptor_t *bgd = &fs->bgdt[group_idx];
 
-        ext2_error_t err = ext2_block_free(fs, inode->i_block[i]);
-        if (err != EXT2_OK)
-            return err;
+    uint8_t *bitmap = (uint8_t *)kalloc(fs->block_size);
+    if (!bitmap)
+        return EXT2_ERR_NO_MEM;
+    
+    ext2_error_t err = ext2_block_read(fs, bgd->bg_inode_bitmap, bitmap);
+    if (err != EXT2_OK) {
+        kfree(bitmap);
+        return err;
     }
+
+    bitmap_clear(bitmap, local_idx);
+
+    /* save the change */
+    err = ext2_block_write(fs, bgd->bg_inode_bitmap, bitmap);
+    if (err != EXT2_OK) {
+        kfree(bitmap);
+        return err;
+    }
+
+    bgd->bg_free_inodes_count++;
+    fs->bgdt_dirty = 1;
+
+    fs->superblock.s_free_inodes_count++;
+    fs->sb_dirty = 1;
+
+    kfree(bitmap);
     return EXT2_OK;
 }
 
-static ext2_error_t free_single_indirect(ext2_fs_t *fs, uint32_t block_no,
-                                          uint8_t *buf) {
-    ext2_error_t err = ext2_block_read(fs, block_no, buf);
-    if (err != EXT2_OK)
-        return err;
-
-    uint32_t *ptrs = (uint32_t *)buf;
-    for (uint32_t i = 0; i < fs->ptrs_per_block; i++) {
-        if (ptrs[i] == 0)
-            continue;
-
-        err = ext2_block_free(fs, ptrs[i]);
-        if (err != EXT2_OK)
-            return err;
-    }
-
-    /* Free the indirect block itself */
-    return ext2_block_free(fs, block_no);
-}
-
-static ext2_error_t free_double_indirect(ext2_fs_t *fs, uint32_t block_no,
-                                          uint8_t *buf1, uint8_t *buf2) {
-    ext2_error_t err = ext2_block_read(fs, block_no, buf1);
-    if (err != EXT2_OK)
-        return err;
-
-    uint32_t *l1 = (uint32_t *)buf1;
-    for (uint32_t i = 0; i < fs->ptrs_per_block; i++) {
-        if (l1[i] == 0)
-            continue;
-
-        err = free_single_indirect(fs, l1[i], buf2);
-        if (err != EXT2_OK)
-            return err;
-    }
-
-    /* Free the doubly indirect block itself */
-    return ext2_block_free(fs, block_no);
-}
-
-static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no,
-                                          uint8_t *buf1, uint8_t *buf2,
-                                          uint8_t *buf3) {
-    ext2_error_t err = ext2_block_read(fs, block_no, buf1);
-    if (err != EXT2_OK)
-        return err;
-
-    uint32_t *l1 = (uint32_t *)buf1;
-    for (uint32_t i = 0; i < fs->ptrs_per_block; i++) {
-        if (l1[i] == 0)
-            continue;
-
-        err = free_double_indirect(fs, l1[i], buf2, buf3);
-        if (err != EXT2_OK)
-            return err;
-    }
-
-    /* Free the triply indirect block itself */
-    return ext2_block_free(fs, block_no);
-}
-
-/* =========================================================================
- * ext2_inode_free_blocks
- * ========================================================================= */
-
-ext2_error_t ext2_inode_free_blocks(ext2_fs_t *fs, ext2_inode_t *inode)
-{
+ext2_error_t ext2_inode_free_blocks(ext2_fs_t *fs, ext2_inode_t *inode) {
     if (!fs || !inode)
         return EXT2_ERR_INVALID;
 
@@ -505,3 +471,80 @@ int          ext2_is_dir(ext2_fs_t *fs, const char *path);
 int          ext2_is_file(ext2_fs_t *fs, const char *path);
 int          ext2_is_symlink(ext2_fs_t *fs, const char *path);
 const char  *ext2_strerror(ext2_error_t err);*/
+
+/* =========================================================================
+ * INTERNAL HELPERS
+ * ========================================================================= */
+
+static ext2_error_t free_direct_blocks(ext2_fs_t *fs, ext2_inode_t *inode) {
+    for (uint32_t i = 0; i < 12; i++) {
+        if (inode->i_block[i] == 0)
+            continue;
+
+        ext2_error_t err = ext2_block_free(fs, inode->i_block[i]);
+        if (err != EXT2_OK)
+            return err;
+    }
+    return EXT2_OK;
+}
+
+static ext2_error_t free_single_indirect(ext2_fs_t *fs, uint32_t block_no,
+                                          uint8_t *buf) {
+    ext2_error_t err = ext2_block_read(fs, block_no, buf);
+    if (err != EXT2_OK)
+        return err;
+
+    uint32_t *ptrs = (uint32_t *)buf;
+    for (uint32_t i = 0; i < fs->ptrs_per_block; i++) {
+        if (ptrs[i] == 0)
+            continue;
+
+        err = ext2_block_free(fs, ptrs[i]);
+        if (err != EXT2_OK)
+            return err;
+    }
+
+    /* Free the indirect block itself */
+    return ext2_block_free(fs, block_no);
+}
+
+static ext2_error_t free_double_indirect(ext2_fs_t *fs, uint32_t block_no,
+                                          uint8_t *buf1, uint8_t *buf2) {
+    ext2_error_t err = ext2_block_read(fs, block_no, buf1);
+    if (err != EXT2_OK)
+        return err;
+
+    uint32_t *l1 = (uint32_t *)buf1;
+    for (uint32_t i = 0; i < fs->ptrs_per_block; i++) {
+        if (l1[i] == 0)
+            continue;
+
+        err = free_single_indirect(fs, l1[i], buf2);
+        if (err != EXT2_OK)
+            return err;
+    }
+
+    /* Free the doubly indirect block itself */
+    return ext2_block_free(fs, block_no);
+}
+
+static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no,
+                                          uint8_t *buf1, uint8_t *buf2,
+                                          uint8_t *buf3) {
+    ext2_error_t err = ext2_block_read(fs, block_no, buf1);
+    if (err != EXT2_OK)
+        return err;
+
+    uint32_t *l1 = (uint32_t *)buf1;
+    for (uint32_t i = 0; i < fs->ptrs_per_block; i++) {
+        if (l1[i] == 0)
+            continue;
+
+        err = free_double_indirect(fs, l1[i], buf2, buf3);
+        if (err != EXT2_OK)
+            return err;
+    }
+
+    /* Free the triply indirect block itself */
+    return ext2_block_free(fs, block_no);
+}
