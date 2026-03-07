@@ -96,8 +96,7 @@ ext2_error_t ext2_block_alloc(ext2_fs_t *fs, uint32_t preferred_group, uint32_t 
     return EXT2_ERR_NO_SPACE;
 }
 
-ext2_error_t ext2_block_free(ext2_fs_t *fs, uint32_t block_no)
-{
+ext2_error_t ext2_block_free(ext2_fs_t *fs, uint32_t block_no) {
     if (!fs)
         return EXT2_ERR_INVALID;
 

@@ -1,0 +1,2 @@
+NOTE:
+    1. we will only have one copy of the superblock, the one on the start, 1024 bytes from the start of the drive
