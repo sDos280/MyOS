@@ -7,8 +7,8 @@
  * FILE OPERATIONS
  * ========================================================================= */
 
-/*ext2_file_t *ext2_file_open(ext2_fs_t *fs, const char *path, uint32_t flags, uint16_t mode);
-ext2_file_t *ext2_file_open_inode(ext2_fs_t *fs, uint32_t ino, uint32_t flags);
+/*ext2_error_t ext2_file_open(ext2_fs_t *fs, const char *path, uint32_t flags, uint16_t mode, ext2_file_t **file_out);
+ext2_error_t ext2_file_open_inode(ext2_fs_t *fs, uint32_t ino, uint32_t flags, ext2_file_t **file_out);
 ext2_error_t ext2_file_close(ext2_file_t *file);
 ext2_error_t ext2_file_read(ext2_file_t *file, void *buf, size_t count, size_t *bytes_read);
 ext2_error_t ext2_file_write(ext2_file_t *file, const void *buf, size_t count, size_t *bytes_written);

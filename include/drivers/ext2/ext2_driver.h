@@ -533,20 +533,15 @@ uint32_t ext2_block_group_count(ext2_fs_t *fs);
 /**
  * ext2_file_open - Open or create a file by absolute path.
  *
- * @param fs    Filesystem handle.
- * @param path  Absolute path to the file (e.g. "/home/user/file.txt").
- * @param flags Combination of EXT2_O_* flags.
+ * @param fs        Filesystem handle.
+ * @param path      Absolute path to the file.
+ * @param flags     Combination of EXT2_O_* flags.
  * @param mode  Permission bits (i_mode) used when creating a new file
  *              (e.g. EXT2_S_IRUSR | EXT2_S_IWUSR). Ignored if not creating.
- * @return      Pointer to ext2_file_t handle on success, or NULL on failure.
- *
- * Example:
- *   ext2_file_t *f = ext2_file_open(fs, "/data.bin",
- *                                   EXT2_O_CREAT | EXT2_O_RDWR,
- *                                   EXT2_S_IRUSR | EXT2_S_IWUSR);
+ * @param file_out  Out: pointer to the allocated ext2_file_t handle.
+ * @return          EXT2_OK on success, or a negative ext2_error_t on failure.
  */
-ext2_file_t *ext2_file_open(ext2_fs_t *fs, const char *path,
-                             uint32_t flags, uint16_t mode);
+ext2_error_t ext2_file_open(ext2_fs_t *fs, const char *path, uint32_t flags, uint16_t mode, ext2_file_t **file_out);
 
 /**
  * ext2_file_open_inode - Open a file directly by inode number.
@@ -554,9 +549,10 @@ ext2_file_t *ext2_file_open(ext2_fs_t *fs, const char *path,
  * @param fs        Filesystem handle.
  * @param ino       Inode number.
  * @param flags     EXT2_O_RDONLY, EXT2_O_WRONLY, or EXT2_O_RDWR.
- * @return          File handle on success, NULL on failure.
+ * @param file_out  Out: pointer to the allocated ext2_file_t handle.
+ * @return          EXT2_OK on success, or a negative ext2_error_t on failure.
  */
-ext2_file_t *ext2_file_open_inode(ext2_fs_t *fs, uint32_t ino, uint32_t flags);
+ext2_error_t ext2_file_open_inode(ext2_fs_t *fs, uint32_t ino, uint32_t flags, ext2_file_t **file_out);
 
 /**
  * ext2_file_close - Close a file handle and release associated resources.
@@ -810,22 +806,24 @@ ext2_error_t ext2_rmdir(ext2_fs_t *fs, const char *path);
 ext2_error_t ext2_rmdir_r(ext2_fs_t *fs, const char *path);
 
 /**
- * ext2_dir_open - Open a directory for iteration.
+ * ext2_dir_open - Open a directory for iteration by path.
  *
- * @param fs    Filesystem handle.
- * @param path  Absolute path to the directory.
- * @return      Pointer to ext2_dir_t handle on success, NULL on failure.
+ * @param fs        Filesystem handle.
+ * @param path      Absolute path to the directory.
+ * @param dir_out   Out: pointer to the allocated ext2_dir_t handle.
+ * @return          EXT2_OK on success, or a negative ext2_error_t on failure.
  */
-ext2_dir_t *ext2_dir_open(ext2_fs_t *fs, const char *path);
+ext2_error_t ext2_dir_open(ext2_fs_t *fs, const char *path, ext2_dir_t **dir_out);
 
 /**
  * ext2_dir_open_inode - Open a directory for iteration by inode number.
  *
- * @param fs    Filesystem handle.
- * @param ino   Directory inode number.
- * @return      Pointer to ext2_dir_t handle on success, NULL on failure.
+ * @param fs        Filesystem handle.
+ * @param ino       Directory inode number.
+ * @param dir_out   Out: pointer to the allocated ext2_dir_t handle.
+ * @return          EXT2_OK on success, or a negative ext2_error_t on failure.
  */
-ext2_dir_t *ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino);
+ext2_error_t ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino, ext2_dir_t **dir_out);
 
 /**
  * ext2_dir_read - Read the next entry from an open directory.
