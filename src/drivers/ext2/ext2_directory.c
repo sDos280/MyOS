@@ -114,5 +114,13 @@ next_entry:
 
     return EXT2_OK;
 }
-/*ext2_error_t ext2_dir_rewind(ext2_dir_t *dir);
-ext2_error_t ext2_dir_close(ext2_dir_t *dir);*/
+
+/*ext2_error_t ext2_dir_rewind(ext2_dir_t *dir);*/
+
+ext2_error_t ext2_dir_close(ext2_dir_t *dir) {
+    if (!dir)
+        return EXT2_ERR_INVALID;
+    
+    kfree(dir);
+    return EXT2_OK;
+}
