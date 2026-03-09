@@ -295,67 +295,75 @@ typedef struct __attribute__((packed)) ext2_dir_entry {
 
 struct ext2_fs {
     /* --- ATA backing device --- */
-    ata_drive_t     *drive;
+    ata_drive_t     *drive;             /* ATA drive this filesystem lives on        */
 
     /* --- Superblock --- */
-    ext2_superblock_t superblock;
-    uint8_t           sb_dirty;
+    ext2_superblock_t superblock;       /* In-memory copy of the superblock          */
+    uint8_t           sb_dirty;         /* 1 if superblock has unsaved changes       */
 
-    /* --- Derived geometry --- */
-    uint32_t          block_size;
-    uint32_t          sectors_per_block;
-    uint32_t          num_groups;
-    uint32_t          inodes_per_block;
-    uint32_t          ptrs_per_block;
+    /* --- Derived geometry (computed once at mount time) --- */
+    uint32_t          block_size;        /* Block size in bytes (1024 << s_log_block_size)    */
+    uint32_t          sectors_per_block; /* Number of 512-byte ATA sectors per block          */
+    uint32_t          num_groups;        /* Total number of block groups on the filesystem    */
+    uint32_t          inodes_per_block;  /* Number of inodes that fit in a single block       */
+    uint32_t          ptrs_per_block;    /* Number of uint32_t block pointers per block       */
 
     /* --- Block Group Descriptor Table --- */
-    ext2_block_group_descriptor_t *bgdt;
-    uint8_t                        bgdt_dirty;
+    ext2_block_group_descriptor_t *bgdt;       /* Heap-allocated array of num_groups descriptors  */
+    uint8_t                        bgdt_dirty; /* 1 if any descriptor has unsaved changes         */
 
     /* --- Mount state --- */
-    uint32_t  mount_flags;
-    uint8_t   read_only;
-    uint32_t  last_error;
+    uint32_t  mount_flags;  /* EXT2_MOUNT_* flags passed to ext2_mount()             */
+    uint8_t   read_only;    /* 1 if mounted read-only, 0 if read-write               */
+    uint32_t  last_error;   /* Most recent error code set by any ext2 operation      */
 };
 
 
 struct ext2_file {
     /* --- Filesystem and identity --- */
-    ext2_fs_t   *fs;
-    uint32_t     ino;
-    ext2_inode_t inode;
-    uint8_t      inode_dirty;
+    ext2_fs_t   *fs;            /* Filesystem this file belongs to                       */
+    uint32_t     ino;           /* Inode number of this file                             */
+    ext2_inode_t inode;         /* In-memory working copy of the inode                   */
+    uint8_t      inode_dirty;   /* 1 if inode has been modified and not yet written back */
 
     /* --- File position --- */
-    uint64_t     pos;
-    uint64_t     size;
+    uint64_t     pos;           /* Current read/write cursor in bytes from start of file */
+    uint64_t     size;          /* Cached file size in bytes (64-bit, from inode)        */
 
     /* --- Open flags --- */
-    uint32_t     flags;
+    uint32_t     flags;         /* EXT2_O_* flags this file was opened with              */
 
-    /* --- Block I/O buffer --- */
-    uint8_t      block_buf[EXT2_MAX_BLOCK_SIZE];
-    uint32_t     buf_block_no;
-    uint8_t      buf_valid;
-    uint8_t      buf_dirty;
+    /* --- Block I/O buffer ---
+       Holds the last accessed block so that multiple small reads/writes
+       to the same block don't each trigger a full ATA read/write.        */
+    uint8_t      block_buf[EXT2_MAX_BLOCK_SIZE]; /* Raw data of the buffered block       */
+    uint32_t     buf_block_no;  /* Physical block number currently loaded in block_buf   */
+    uint8_t      buf_valid;     /* 1 if block_buf contains valid data                    */
+    uint8_t      buf_dirty;     /* 1 if block_buf has been modified and not written back */
 };
 
 
 struct ext2_dir {
     /* --- Filesystem and identity --- */
-    ext2_fs_t   *fs;
-    uint32_t     ino;
-    ext2_inode_t inode;
-    uint64_t     dir_size;
+    ext2_fs_t   *fs;            /* Filesystem this directory belongs to                  */
+    uint32_t     ino;           /* Inode number of this directory                        */
+    ext2_inode_t inode;         /* In-memory copy of the directory inode                 */
+    uint64_t     dir_size;      /* Total byte size of directory data (from inode i_size).
+                                   Used as the termination condition in ext2_dir_read    */
 
-    /* --- Iteration state --- */
-    uint32_t     logical_block_idx;
-    uint32_t     byte_offset;
+    /* --- Iteration state ---
+       Directories are a flat stream of variable-length ext2_dir_entry_t
+       records packed into blocks. Position is tracked as a block index
+       plus a byte offset within that block.                               */
+    uint32_t     logical_block_idx; /* Index of the current block within the directory data  */
+    uint32_t     byte_offset;       /* Byte offset within the current block                  */
 
-    /* --- Block buffer --- */
-    uint8_t      block_buf[EXT2_MAX_BLOCK_SIZE];
-    uint32_t     buf_block_no;
-    uint8_t      buf_valid;
+    /* --- Block buffer ---
+       Holds the currently loaded directory block so consecutive
+       ext2_dir_read calls on the same block avoid redundant ATA reads.   */
+    uint8_t      block_buf[EXT2_MAX_BLOCK_SIZE]; /* Raw data of the currently loaded block    */
+    uint32_t     buf_block_no;  /* Physical block number currently loaded in block_buf   */
+    uint8_t      buf_valid;     /* 1 if block_buf contains valid data                    */
 };
 
 /** Represents a mounted Ext2 filesystem. Obtained via ext2_mount(). */
