@@ -73,51 +73,53 @@ void* kalloc(size_t size){
         if (current->is_used == CHUNK_NOT_IN_US && (current->size > size + sizeof(heap_chunk_t) /* the > in here may be replaced with more rigorous condition */)){
             // calculate returned chunk position in memory
             void * position_after_chunk = (void *)current + current->size + sizeof(heap_chunk_t);
-            heap_chunk_t * new = (heap_chunk_t *)(position_after_chunk - size - sizeof(heap_chunk_t));
+            heap_chunk_t * new_chunk = (heap_chunk_t *)(position_after_chunk - size - sizeof(heap_chunk_t));
             
             // NOTE: next = current->next
 
             // set list's pointers
             // set pointers for next
             if (current->next != NULL) {
-                current->next->previous = new;
+                current->next->previous = new_chunk;
             }
 
-            // set pointers of new chunk
-            new->next = current->next;
-            new->previous = current;
+            // set pointers of new_chunk chunk
+            new_chunk->next = current->next;
+            new_chunk->previous = current;
 
             // set current chunk pointers
-            current->next = new;
+            current->next = new_chunk;
 
             // initialize chunk
-            new->is_used = CHUNK_IN_US;
-            new->size = size;
+            new_chunk->is_used = CHUNK_IN_US;
+            new_chunk->size = size;
 
             // update current chunk size
             current->size -= size + sizeof(heap_chunk_t);
 
-            return (void *)new + sizeof(heap_chunk_t);
+            return (void *)new_chunk + sizeof(heap_chunk_t);
         }
 
         current = current->next;
     }
+
+    return NULL; // faild to allocate memoy
 }
 
 void kfree(void * user_pointer) {
     if (user_pointer == NULL) return;
     
-    heap_chunk_t * chunk = (heap_chunk_t *)(user_pointer - sizeof(heap_chunk_t));
+    heap_chunk_t * chunk = (heap_chunk_t *)((char *)user_pointer - sizeof(heap_chunk_t));
 
     // update chunk status
     chunk->is_used = CHUNK_NOT_IN_US;
-    
-    // assimilate next chunk to the current chunk if he is free
-    if (chunk->next != NULL && chunk->next->is_used == CHUNK_NOT_IN_US) {
-        // change the prespective to the next chunk
-        heap_chunk_t * next = chunk->next->next;
-        heap_chunk_t * current = chunk->next;
-        heap_chunk_t * previous = chunk;
+
+    // Fix 4: assimilate current chunk to the previous chunk if it is free FIRST
+    if (chunk->previous != NULL && chunk->previous->is_used == CHUNK_NOT_IN_US) {
+        // preserve the current prespective
+        heap_chunk_t * next = chunk->next;
+        heap_chunk_t * current = chunk;
+        heap_chunk_t * previous = chunk->previous;
 
         // update pointers of next
         if (next != NULL) {
@@ -130,14 +132,17 @@ void kfree(void * user_pointer) {
 
         // update the previous (in the current prespective) chunk size
         previous->size += sizeof(heap_chunk_t) + current->size;
+
+        // repoint chunk to previous so the next merge works correctly
+        chunk = previous;
     }
 
-    // assimilate current chunk to the previous chunk if he is free
-    if (chunk->previous != NULL && chunk->previous->is_used == CHUNK_NOT_IN_US) {
-        // preserve the current prespective
-        heap_chunk_t * next = chunk->next;
-        heap_chunk_t * current = chunk;
-        heap_chunk_t * previous = chunk->previous;
+    // assimilate next chunk to the current chunk if it is free
+    if (chunk->next != NULL && chunk->next->is_used == CHUNK_NOT_IN_US) {
+        // change the prespective to the next chunk
+        heap_chunk_t * next = chunk->next->next;
+        heap_chunk_t * current = chunk->next;
+        heap_chunk_t * previous = chunk;
 
         // update pointers of next
         if (next != NULL) {
