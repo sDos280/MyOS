@@ -10,11 +10,22 @@
 /*ext2_error_t ext2_mkdir(ext2_fs_t *fs, const char *path, uint16_t mode);
 ext2_error_t ext2_mkdir_p(ext2_fs_t *fs, const char *path, uint16_t mode);
 ext2_error_t ext2_rmdir(ext2_fs_t *fs, const char *path);
-ext2_error_t ext2_rmdir_r(ext2_fs_t *fs, const char *path);
-ext2_error_t ext2_dir_open(ext2_fs_t *fs, const char *path, ext2_dir_t **dir_out);
-*/
-ext2_error_t ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino, ext2_dir_t **dir_out)
-{
+ext2_error_t ext2_rmdir_r(ext2_fs_t *fs, const char *path);*/
+
+ext2_error_t ext2_dir_open(ext2_fs_t *fs, const char *path, ext2_dir_t **dir_out) {
+    if (!fs || !path || !dir_out)
+        return EXT2_ERR_INVALID;
+    
+    uint32_t dir_ino;
+
+    ext2_error_t err = ext2_lookup(fs, path, &dir_ino);
+    if (err != EXT2_OK)
+        return err;
+    
+    return ext2_dir_open_inode(fs, dir_ino, dir_out);
+}
+
+ext2_error_t ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino, ext2_dir_t **dir_out) {
     if (!fs || !dir_out)
         return EXT2_ERR_INVALID;
 

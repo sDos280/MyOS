@@ -58,7 +58,9 @@ ext2_error_t ext2_lookup(ext2_fs_t *fs, const char *path, uint32_t *ino_out) {
             }
         }
 
-        ext2_dir_close(&dir);
+        err = ext2_dir_close(dir);
+        if (err != EXT2_OK)
+            return err;
 
         if (!found)
             return EXT2_ERR_NOT_FOUND;
