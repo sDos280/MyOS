@@ -25,7 +25,7 @@ ext2_error_t ext2_block_write(ext2_fs_t *fs, uint32_t block_no, const void *buf)
     
     uint32_t starting_sector = 4 + (fs->sectors_per_block * block_no);
 
-    if (ata_write28_request(fs->drive, starting_sector, fs->sectors_per_block, buf) != 0) {
+    if (ata_write28_request(fs->drive, starting_sector, fs->sectors_per_block, (uint8_t *)buf) != 0) {
         /* FIX: should probaly do something */
         return EXT2_ERR_IO;
     }
@@ -107,7 +107,7 @@ ext2_error_t ext2_block_free(ext2_fs_t *fs, uint32_t block_no) {
     if (group_idx >= fs->num_groups)
         return EXT2_ERR_INVALID;
 
-    uint8_t *bitmap = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *bitmap = (uint8_t *)kalloc(fs->block_size);
     if (!bitmap)
         return EXT2_ERR_NO_MEM;
 

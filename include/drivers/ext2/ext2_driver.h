@@ -292,6 +292,14 @@ typedef struct __attribute__((packed)) ext2_dir_entry {
 #define EXT2_MAX_BLOCK_SIZE     4096
 #define EXT2_SECTOR_SIZE        512
 
+/** Represents a mounted Ext2 filesystem. Obtained via ext2_mount(). */
+typedef struct ext2_fs ext2_fs_t;
+
+/** Represents an open file within a mounted filesystem. */
+typedef struct ext2_file ext2_file_t;
+
+/** Represents an open directory for iteration. */
+typedef struct ext2_dir ext2_dir_t;
 
 struct ext2_fs {
     /* --- ATA backing device --- */
@@ -365,15 +373,6 @@ struct ext2_dir {
     uint32_t     buf_block_no;  /* Physical block number currently loaded in block_buf   */
     uint8_t      buf_valid;     /* 1 if block_buf contains valid data                    */
 };
-
-/** Represents a mounted Ext2 filesystem. Obtained via ext2_mount(). */
-typedef struct ext2_fs ext2_fs_t;
-
-/** Represents an open file within a mounted filesystem. */
-typedef struct ext2_file ext2_file_t;
-
-/** Represents an open directory for iteration. */
-typedef struct ext2_dir ext2_dir_t;
 
 /**
  * Stat-like structure populated by ext2_stat() and ext2_fstat().

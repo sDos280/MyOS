@@ -96,7 +96,7 @@ ext2_error_t ext2_inode_alloc(ext2_fs_t *fs, uint32_t preferred_group, uint32_t 
     if (fs->superblock.s_free_inodes_count == 0)
         return EXT2_ERR_NO_INODES;
 
-    uint8_t *bitmap = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *bitmap = (uint8_t *)kalloc(fs->block_size);
     if (!bitmap)
         return EXT2_ERR_NO_MEM;
 
@@ -200,9 +200,9 @@ ext2_error_t ext2_inode_free_blocks(ext2_fs_t *fs, ext2_inode_t *inode) {
     if (fs->read_only)
         return EXT2_ERR_READ_ONLY;
 
-    uint8_t *buf1 = (uint8_t *)kmalloc(fs->block_size);
-    uint8_t *buf2 = (uint8_t *)kmalloc(fs->block_size);
-    uint8_t *buf3 = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *buf1 = (uint8_t *)kalloc(fs->block_size);
+    uint8_t *buf2 = (uint8_t *)kalloc(fs->block_size);
+    uint8_t *buf3 = (uint8_t *)kalloc(fs->block_size);
 
     if (!buf1 || !buf2 || !buf3) {
         kfree(buf1); kfree(buf2); kfree(buf3);
@@ -405,7 +405,7 @@ static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no,
 static ext2_error_t resolve_single_indirect(ext2_fs_t *fs, uint32_t indirect_block,
                                              uint32_t idx, uint32_t *phys_block)
 {
-    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *buf = (uint8_t *)kalloc(fs->block_size);
     if (!buf)
         return EXT2_ERR_NO_MEM;
 
@@ -428,7 +428,7 @@ static ext2_error_t resolve_single_indirect(ext2_fs_t *fs, uint32_t indirect_blo
 static ext2_error_t resolve_double_indirect(ext2_fs_t *fs, uint32_t indirect_block,
                                              uint32_t idx, uint32_t *phys_block)
 {
-    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *buf = (uint8_t *)kalloc(fs->block_size);
     if (!buf)
         return EXT2_ERR_NO_MEM;
 
@@ -459,7 +459,7 @@ static ext2_error_t resolve_double_indirect(ext2_fs_t *fs, uint32_t indirect_blo
 static ext2_error_t resolve_triple_indirect(ext2_fs_t *fs, uint32_t indirect_block,
                                              uint32_t idx, uint32_t *phys_block)
 {
-    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *buf = (uint8_t *)kalloc(fs->block_size);
     if (!buf)
         return EXT2_ERR_NO_MEM;
 

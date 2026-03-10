@@ -3,7 +3,7 @@
 #ifndef BITMAP_UTIL_H
 #define BITMAP_UTIL_H
 
-#include <stdint.h>
+#include <types.h>
 
 /**
  * bitmap_get - Test whether a bit is set.
