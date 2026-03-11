@@ -45,6 +45,7 @@ ext2_error_t ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino, ext2_dir_t **dir_o
     dir_h->ino               = ino;
     memcpy(&dir_h->inode, &dir_inode, sizeof(ext2_inode_t));
     dir_h->dir_size          = ext2_inode_get_size(fs, &dir_inode);
+    memset(dir_h->block_buf, 0, EXT2_MAX_BLOCK_SIZE);
     dir_h->logical_block_idx = 0;
     dir_h->byte_offset       = 0;
     dir_h->buf_block_no      = 0;
@@ -64,14 +65,12 @@ next_entry:
     /* ------------------------------------------------------------------ */
     /* End of directory check                                              */
     /* ------------------------------------------------------------------ */
-    {
-        uint64_t current_pos = (uint64_t)dir->logical_block_idx
+    uint64_t current_pos = (uint64_t)dir->logical_block_idx
                              * dir->fs->block_size
                              + dir->byte_offset;
 
-        if (current_pos >= dir->dir_size)
-            return EXT2_ERR_NOT_FOUND;
-    }
+    if (current_pos >= dir->dir_size)
+        return EXT2_ERR_NOT_FOUND;
 
     /* ------------------------------------------------------------------ */
     /* Load block into buffer if not valid                                 */
@@ -126,7 +125,16 @@ next_entry:
     return EXT2_OK;
 }
 
-/*ext2_error_t ext2_dir_rewind(ext2_dir_t *dir);*/
+ext2_error_t ext2_dir_rewind(ext2_dir_t *dir) {
+    if (!dir)
+        return EXT2_ERR_INVALID;
+
+    dir->logical_block_idx = 0;
+    dir->byte_offset       = 0;
+    dir->buf_valid         = 0;
+
+    return EXT2_OK;
+}
 
 ext2_error_t ext2_dir_close(ext2_dir_t *dir) {
     if (!dir)
