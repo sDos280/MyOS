@@ -52,3 +52,19 @@ int strncmp(const char *s1, const char *s2, size_t n) {
     // If 'n' characters were compared and no difference was found, the strings are equal
     return 0;
 }
+
+char * strncpy(char *dest, const char *src, size_t n) {
+    size_t i;
+
+    // 1. Copy characters from src to dest, up to n
+    for (i = 0; i < n && src[i] != '\0'; i++) {
+        dest[i] = src[i];
+    }
+
+    // 2. If we haven't reached n, fill the rest of dest with '\0'
+    for (; i < n; i++) {
+        dest[i] = '\0';
+    }
+
+    return dest;
+}
