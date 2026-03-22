@@ -437,6 +437,27 @@ typedef struct ext2_dirent {
 #define EXT2_SEEK_CUR   1   /* Seek from current position */
 #define EXT2_SEEK_END   2   /* Seek from end of file */
 
+/* =========================================================================
+ * FILESYSTEM FORMAT
+ * ========================================================================= */
+/**
+ * ext2_format - Create a new Ext2 filesystem on an ATA drive.
+ *
+ * Writes a fresh superblock, block group descriptor table, block bitmaps,
+ * inode bitmaps, inode tables, and a root directory to the drive.
+ * Any existing data on the drive will be overwritten.
+ *
+ * @param drive         ATA drive to format.
+ * @param block_size    Block size in bytes. Must be 1024, 2048, or 4096.
+ * @param volume_name   Null-terminated volume label (max 15 chars). May be NULL.
+ * @return              EXT2_OK on success, or a negative ext2_error_t on failure.
+ *
+ * Example:
+ *   ext2_format(drive, 1024, "myvolume");
+ *   ext2_fs_t *fs = ext2_mount(drive, EXT2_MOUNT_RW);
+ */
+ext2_error_t ext2_format(ata_drive_t *drive, uint32_t block_size,
+                          const char *volume_name);
 
 /* =========================================================================
  * FILESYSTEM LIFECYCLE
