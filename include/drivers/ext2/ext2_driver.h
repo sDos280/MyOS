@@ -833,6 +833,24 @@ ext2_error_t ext2_dir_open(ext2_fs_t *fs, const char *path, ext2_dir_t **dir_out
 ext2_error_t ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino, ext2_dir_t **dir_out);
 
 /**
+ * ext2_dir_add_entry - Add a new entry to a directory.
+ *
+ * Scans the directory's existing blocks for a deleted entry or a last-entry
+ * with enough excess rec_len to fit the new entry. If no space is found a
+ * new block is allocated and appended to the directory.
+ *
+ * @param fs         Filesystem handle.
+ * @param parent_ino Inode number of the directory to add the entry to.
+ * @param new_ino    Inode number of the file/directory being added.
+ * @param name       Null-terminated filename (max EXT2_MAX_NAME_LEN chars).
+ * @param file_type  EXT2_FT_* constant describing the type of the new entry.
+ * @return           EXT2_OK on success, or a negative ext2_error_t on failure.
+ */
+ext2_error_t ext2_dir_add_entry(ext2_fs_t *fs, uint32_t parent_ino,
+                                 uint32_t new_ino, const char *name,
+                                 uint8_t file_type);
+
+/**
  * ext2_dir_read - Read the next entry from an open directory.
  *
  * @param dir   Directory handle from ext2_dir_open().

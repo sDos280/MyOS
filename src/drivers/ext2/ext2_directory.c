@@ -210,6 +210,146 @@ ext2_error_t ext2_dir_open_inode(ext2_fs_t *fs, uint32_t ino, ext2_dir_t **dir_o
     return EXT2_OK;
 }
 
+ext2_error_t ext2_dir_add_entry(ext2_fs_t *fs, uint32_t parent_ino,
+                                 uint32_t new_ino, const char *name,
+                                 uint8_t file_type)
+{
+    if (!fs || !name)
+        return EXT2_ERR_INVALID;
+
+    if (fs->read_only)
+        return EXT2_ERR_READ_ONLY;
+
+    uint8_t name_len = (uint8_t)strlen(name);
+    if (name_len == 0 || name_len > EXT2_MAX_NAME_LEN)
+        return EXT2_ERR_INVALID;
+
+    /* minimum rec_len needed for the new entry, aligned to 4 bytes */
+    uint16_t needed = (uint16_t)align_up(8 + name_len, 4);
+
+    /* ------------------------------------------------------------------ */
+    /* Read parent inode                                                   */
+    /* ------------------------------------------------------------------ */
+    ext2_inode_t parent_inode;
+    ext2_error_t err = ext2_inode_read(fs, parent_ino, &parent_inode);
+    if (err != EXT2_OK)
+        return err;
+
+    uint64_t dir_size   = ext2_inode_get_size(fs, &parent_inode);
+    uint32_t num_blocks = (uint32_t)(dir_size / fs->block_size);
+
+    uint8_t *block_buf = (uint8_t *)kmalloc(fs->block_size);
+    if (!block_buf)
+        return EXT2_ERR_NO_MEM;
+
+    /* ------------------------------------------------------------------ */
+    /* Scan existing blocks for space                                      */
+    /* ------------------------------------------------------------------ */
+    for (uint32_t i = 0; i < num_blocks; i++) {
+        uint32_t phys_block;
+        err = ext2_inode_resolve_block(fs, &parent_inode, i, &phys_block);
+        if (err != EXT2_OK)
+            goto fail;
+
+        err = ext2_block_read(fs, phys_block, block_buf);
+        if (err != EXT2_OK)
+            goto fail;
+
+        uint32_t offset = 0;
+        while (offset < fs->block_size) {
+            ext2_dir_entry_t *cur = (ext2_dir_entry_t *)(block_buf + offset);
+
+            /* actual minimum size this entry occupies */
+            uint16_t actual = (uint16_t)align_up(8 + cur->name_len, 4);
+            uint16_t excess = cur->rec_len - actual;
+
+            if (cur->inode == 0 && cur->rec_len >= needed) {
+                /* -------------------------------------------------------- */
+                /* Case A: reuse a deleted entry                             */
+                /* -------------------------------------------------------- */
+                cur->inode     = new_ino;
+                cur->name_len  = name_len;
+                cur->file_type = file_type;
+                memset(cur->name, 0, name_len);
+                memcpy(cur->name, name, name_len);
+
+                err = ext2_block_write(fs, phys_block, block_buf);
+                kfree(block_buf);
+                return err;
+
+            } else if (cur->inode != 0 && excess >= needed) {
+                /* -------------------------------------------------------- */
+                /* Case B: split the last entry's excess padding            */
+                /* -------------------------------------------------------- */
+                cur->rec_len = actual;
+
+                ext2_dir_entry_t *new_entry = (ext2_dir_entry_t *)
+                                              (block_buf + offset + actual);
+                new_entry->inode     = new_ino;
+                new_entry->rec_len   = excess;
+                new_entry->name_len  = name_len;
+                new_entry->file_type = file_type;
+                memset(new_entry->name, 0, name_len);
+                memcpy(new_entry->name, name, name_len);
+
+                err = ext2_block_write(fs, phys_block, block_buf);
+                kfree(block_buf);
+                return err;
+            }
+
+            offset += cur->rec_len;
+        }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* No space found — allocate a new block for the parent directory      */
+    /* ------------------------------------------------------------------ */
+    uint32_t preferred_group = (parent_ino - 1) / fs->superblock.s_inodes_per_group;
+    uint32_t new_phys_block;
+    err = ext2_block_alloc(fs, preferred_group, &new_phys_block);
+    if (err != EXT2_OK)
+        goto fail;
+
+    memset(block_buf, 0, fs->block_size);
+
+    /* new entry fills the entire new block */
+    ext2_dir_entry_t *new_entry = (ext2_dir_entry_t *)block_buf;
+    new_entry->inode     = new_ino;
+    new_entry->rec_len   = (uint16_t)fs->block_size;
+    new_entry->name_len  = name_len;
+    new_entry->file_type = file_type;
+    memset(new_entry->name, 0, name_len);
+    memcpy(new_entry->name, name, name_len);
+
+    err = ext2_block_write(fs, new_phys_block, block_buf);
+    if (err != EXT2_OK) {
+        ext2_block_free(fs, new_phys_block);
+        goto fail;
+    }
+
+    /* wire new block into parent inode */
+    err = ext2_inode_assign_block(fs, &parent_inode, num_blocks, new_phys_block);
+    if (err != EXT2_OK) {
+        ext2_block_free(fs, new_phys_block);
+        goto fail;
+    }
+
+    /* update parent inode size and block count */
+    parent_inode.i_size   += fs->block_size;
+    parent_inode.i_blocks += fs->sectors_per_block;
+
+    err = ext2_inode_write(fs, parent_ino, &parent_inode);
+    if (err != EXT2_OK)
+        goto fail;
+
+    kfree(block_buf);
+    return EXT2_OK;
+
+fail:
+    kfree(block_buf);
+    return err;
+}
+
 ext2_error_t ext2_dir_read(ext2_dir_t *dir, ext2_dirent_t *entry) {
     if (!dir || !entry)
         return EXT2_ERR_INVALID;
