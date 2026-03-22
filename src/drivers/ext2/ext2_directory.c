@@ -319,3 +319,11 @@ static char * str_get_last_forward_slash_addr(char * str) {
 
     return last;
 }
+
+/*
+ * Align a number to the spesified alignment
+ */
+static inline uint32_t align_up(uint32_t val, uint32_t align)
+{
+    return (val + align - 1) & ~(align - 1);
+}

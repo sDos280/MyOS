@@ -10,6 +10,10 @@ static ext2_error_t free_triple_indirect(ext2_fs_t *fs, uint32_t block_no, uint8
 static ext2_error_t resolve_single_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t *phys_block);
 static ext2_error_t resolve_double_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t *phys_block);
 static ext2_error_t resolve_triple_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t *phys_block);
+static ext2_error_t ensure_indirect_block(ext2_fs_t *fs, uint32_t *block_ptr);
+static ext2_error_t assign_single_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t phys_block);
+static ext2_error_t assign_double_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t phys_block);
+static ext2_error_t assign_triple_indirect(ext2_fs_t *fs, uint32_t indirect_block, uint32_t idx, uint32_t phys_block);
 
 /* =========================================================================
  * INODE ACCESS
@@ -313,6 +317,63 @@ uint64_t ext2_inode_get_size(ext2_fs_t *fs, const ext2_inode_t *inode) {
     return (uint64_t)inode->i_size;
 }
 
+ext2_error_t ext2_inode_assign_block(ext2_fs_t *fs, ext2_inode_t *inode,
+                                      uint32_t logical_block, uint32_t phys_block) {
+    if (!fs || !inode)
+        return EXT2_ERR_INVALID;
+
+    ext2_error_t err;
+
+    uint32_t direct_limit = 12;
+    uint32_t single_limit = direct_limit + fs->ptrs_per_block;
+    uint32_t double_limit = single_limit + (fs->ptrs_per_block * fs->ptrs_per_block);
+
+    /* ------------------------------------------------------------------ */
+    /* Direct                                                              */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < direct_limit) {
+        inode->i_block[logical_block] = phys_block;
+        return EXT2_OK;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Singly indirect                                                     */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < single_limit) {
+        err = ensure_indirect_block(fs, &inode->i_block[12]);
+        if (err != EXT2_OK)
+            return err;
+
+        return assign_single_indirect(fs, inode->i_block[12],
+                                      logical_block - direct_limit,
+                                      phys_block);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Doubly indirect                                                     */
+    /* ------------------------------------------------------------------ */
+    if (logical_block < double_limit) {
+        err = ensure_indirect_block(fs, &inode->i_block[13]);
+        if (err != EXT2_OK)
+            return err;
+
+        return assign_double_indirect(fs, inode->i_block[13],
+                                      logical_block - single_limit,
+                                      phys_block);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Triply indirect                                                     */
+    /* ------------------------------------------------------------------ */
+    err = ensure_indirect_block(fs, &inode->i_block[14]);
+    if (err != EXT2_OK)
+        return err;
+
+    return assign_triple_indirect(fs, inode->i_block[14],
+                                  logical_block - double_limit,
+                                  phys_block);
+}
+
 /* =========================================================================
  * INTERNAL HELPERS
  * ========================================================================= */
@@ -482,4 +543,138 @@ static ext2_error_t resolve_triple_indirect(ext2_fs_t *fs, uint32_t indirect_blo
     }
 
     return resolve_double_indirect(fs, l1_block, l2_idx, phys_block);
+}
+
+
+/*
+ * Allocates a new zeroed indirect block if *block_ptr is 0.
+ * Writes it to disk and updates *block_ptr in place.
+ */
+static ext2_error_t ensure_indirect_block(ext2_fs_t *fs, uint32_t *block_ptr)
+{
+    if (*block_ptr != 0)
+        return EXT2_OK;
+
+    uint32_t new_block;
+    ext2_error_t err = ext2_block_alloc(fs, 0, &new_block);
+    if (err != EXT2_OK)
+        return err;
+
+    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    if (!buf) {
+        ext2_block_free(fs, new_block);
+        return EXT2_ERR_NO_MEM;
+    }
+
+    memset(buf, 0, fs->block_size);
+    err = ext2_block_write(fs, new_block, buf);
+    kfree(buf);
+    if (err != EXT2_OK) {
+        ext2_block_free(fs, new_block);
+        return err;
+    }
+
+    *block_ptr = new_block;
+    return EXT2_OK;
+}
+
+/*
+ * Write phys_block into slot idx of a singly indirect block.
+ */
+static ext2_error_t assign_single_indirect(ext2_fs_t *fs, uint32_t indirect_block,
+                                            uint32_t idx, uint32_t phys_block)
+{
+    uint32_t *buf = (uint32_t *)kmalloc(fs->block_size);
+    if (!buf)
+        return EXT2_ERR_NO_MEM;
+
+    ext2_error_t err = ext2_block_read(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    buf[idx] = phys_block;
+
+    err = ext2_block_write(fs, indirect_block, buf);
+    kfree(buf);
+    return err;
+}
+
+/*
+ * Write phys_block into the correct slot within a doubly indirect block.
+ * idx is relative to the start of the doubly indirect region.
+ */
+static ext2_error_t assign_double_indirect(ext2_fs_t *fs, uint32_t indirect_block,
+                                            uint32_t idx, uint32_t phys_block)
+{
+    uint32_t l1_idx = idx / fs->ptrs_per_block;
+    uint32_t l2_idx = idx % fs->ptrs_per_block;
+
+    uint32_t *buf = (uint32_t *)kmalloc(fs->block_size);
+    if (!buf)
+        return EXT2_ERR_NO_MEM;
+
+    ext2_error_t err = ext2_block_read(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    err = ensure_indirect_block(fs, &buf[l1_idx]);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    /* write back l1 in case ensure_indirect_block allocated a new block */
+    err = ext2_block_write(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    uint32_t l1_block = buf[l1_idx];
+    kfree(buf);
+
+    return assign_single_indirect(fs, l1_block, l2_idx, phys_block);
+}
+
+/*
+ * Write phys_block into the correct slot within a triply indirect block.
+ * idx is relative to the start of the triply indirect region.
+ */
+static ext2_error_t assign_triple_indirect(ext2_fs_t *fs, uint32_t indirect_block,
+                                            uint32_t idx, uint32_t phys_block)
+{
+    uint32_t ptrs_per_dind = fs->ptrs_per_block * fs->ptrs_per_block;
+    uint32_t l1_idx        = idx / ptrs_per_dind;
+    uint32_t l2_idx        = idx % ptrs_per_dind;
+
+    uint32_t *buf = (uint32_t *)kmalloc(fs->block_size);
+    if (!buf)
+        return EXT2_ERR_NO_MEM;
+
+    ext2_error_t err = ext2_block_read(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    err = ensure_indirect_block(fs, &buf[l1_idx]);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    err = ext2_block_write(fs, indirect_block, buf);
+    if (err != EXT2_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    uint32_t l1_block = buf[l1_idx];
+    kfree(buf);
+
+    return assign_double_indirect(fs, l1_block, l2_idx, phys_block);
 }

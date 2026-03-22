@@ -934,6 +934,24 @@ ext2_error_t ext2_inode_resolve_block(ext2_fs_t *fs, const ext2_inode_t *inode,
                                        uint32_t logical_block,
                                        uint32_t *phys_block);
 
+/**
+ * ext2_inode_assign_block - Assign a physical block to a logical block index
+ *                           within a file's inode, allocating any necessary
+ *                           intermediate indirect blocks along the way.
+ *
+ * @param fs            Filesystem handle.
+ * @param inode         Pointer to the inode to update.
+ * @param logical_block Zero-based logical block index within the file.
+ * @param phys_block    Physical block number to assign.
+ * @return              EXT2_OK on success, or a negative ext2_error_t on failure.
+ *
+ * Note: After calling this function the inode's i_block array may have been
+ *       modified. The caller is responsible for writing the inode back to
+ *       disk with ext2_inode_write().
+ */
+ext2_error_t ext2_inode_assign_block(ext2_fs_t *fs, ext2_inode_t *inode,
+                                      uint32_t logical_block,
+                                      uint32_t phys_block);
 
 /* =========================================================================
  * BLOCK-LEVEL ACCESS
