@@ -31,8 +31,12 @@
 #define FLATFS_SECTOR_SUPERBLOCK   0
 #define FLATFS_SECTOR_INODE_BITMAP 1
 #define FLATFS_SECTOR_BLOCK_BITMAP 2
-#define FLATFS_SECTOR_INODE_TABLE  3                            /* first inode sector */
+#define FLATFS_SECTOR_INODE_TABLE  3                           /* first inode sector */
 #define FLATFS_SECTOR_DATA_START   (3 + FLATFS_MAX_FILES)      /* first data sector  */
+
+#define FLATFS_PERMISSION_X        1
+#define FLATFS_PERMISSION_W        2
+#define FLATFS_PERMISSION_R        4
 
 /* ─── on-disk / in-memory structures ──────────────────────────────────────── */
 
@@ -62,7 +66,7 @@ typedef struct __attribute__((packed)) {
     uint8_t  permissions;           /* rwx bit-field: bits 2=r 1=w 0=x        */
     uint16_t _pad0;
     uint32_t size;                  /* file size in bytes                      */
-    uint32_t blocks[FLATFS_DIRECT_BLOCKS]; /* indices into the data region     */
+    uint32_t blocks[FLATFS_DIRECT_BLOCKS]; /* indices into the data region 0 if not allocated */
     uint32_t block_count;           /* number of entries used in blocks[]      */
     uint32_t created_at;            /* unix timestamp                          */
     uint32_t modified_at;           /* unix timestamp                          */
@@ -131,7 +135,7 @@ flatfs_err_t flatfs_mount(flatfs_t *fs, ata_drive_t *drive);
 
 /*
  * flatfs_unmount
- * Flush any dirty metadata to disk via ata_flush_cache, then invalidate `fs`.
+ * Flush any dirty metadata to disk via ata_flush_cache.
  */
 flatfs_err_t flatfs_unmount(flatfs_t *fs);
 
