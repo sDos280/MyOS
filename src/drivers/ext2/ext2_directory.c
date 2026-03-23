@@ -4,6 +4,7 @@
 #include "utils.h"
 
 static char * str_get_last_forward_slash_addr(char * str);
+static inline uint32_t align_up(uint32_t val, uint32_t align);
 
 /* =========================================================================
  * DIRECTORY OPERATIONS
@@ -91,7 +92,7 @@ ext2_error_t ext2_mkdir(ext2_fs_t *fs, const char *path, uint16_t mode) {
     /*    "."  rec_len = 12  (smallest aligned size for 1-char name)       */
     /*    ".." rec_len = block_size - 12  (fills rest of block)            */
     /* ------------------------------------------------------------------ */
-    uint8_t *block_buf = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *block_buf = (uint8_t *)kalloc(fs->block_size);
     if (!block_buf) {
         ext2_inode_free(fs, new_ino);
         ext2_block_free(fs, new_block_no);
@@ -235,9 +236,9 @@ ext2_error_t ext2_dir_add_entry(ext2_fs_t *fs, uint32_t parent_ino,
         return err;
 
     uint64_t dir_size   = ext2_inode_get_size(fs, &parent_inode);
-    uint32_t num_blocks = (uint32_t)(dir_size / fs->block_size);
+    uint32_t num_blocks = (uint32_t)(dir_size) / fs->block_size;
 
-    uint8_t *block_buf = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *block_buf = (uint8_t *)kalloc(fs->block_size);
     if (!block_buf)
         return EXT2_ERR_NO_MEM;
 

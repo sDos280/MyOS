@@ -39,7 +39,7 @@ uint32_t syscall_handler(cpu_status_t * regs) {
 
     switch (regs->eax) {
         case SYSC_MMAP:
-            out = sys_mmap(regs->ebx, regs->ecx, regs->edx);
+            out = (uint32_t)sys_mmap((void *)regs->ebx, regs->ecx, regs->edx);
             break;
         
         default:

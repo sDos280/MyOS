@@ -49,7 +49,7 @@ ext2_error_t ext2_lookup(ext2_fs_t *fs, const char *path, uint32_t *ino_out) {
         ext2_dirent_t entry;
         uint8_t found = 0;
 
-        while ((err = ext2_dir_read(&dir, &entry)) == EXT2_OK) {
+        while ((err = ext2_dir_read(dir, &entry)) == EXT2_OK) {
             if (component_len == entry.d_name_len &&
                 strncmp(p, entry.d_name, component_len) == 0) {
                 current_ino = entry.d_ino;

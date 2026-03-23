@@ -560,7 +560,7 @@ static ext2_error_t ensure_indirect_block(ext2_fs_t *fs, uint32_t *block_ptr)
     if (err != EXT2_OK)
         return err;
 
-    uint8_t *buf = (uint8_t *)kmalloc(fs->block_size);
+    uint8_t *buf = (uint8_t *)kalloc(fs->block_size);
     if (!buf) {
         ext2_block_free(fs, new_block);
         return EXT2_ERR_NO_MEM;
@@ -584,7 +584,7 @@ static ext2_error_t ensure_indirect_block(ext2_fs_t *fs, uint32_t *block_ptr)
 static ext2_error_t assign_single_indirect(ext2_fs_t *fs, uint32_t indirect_block,
                                             uint32_t idx, uint32_t phys_block)
 {
-    uint32_t *buf = (uint32_t *)kmalloc(fs->block_size);
+    uint32_t *buf = (uint32_t *)kalloc(fs->block_size);
     if (!buf)
         return EXT2_ERR_NO_MEM;
 
@@ -611,7 +611,7 @@ static ext2_error_t assign_double_indirect(ext2_fs_t *fs, uint32_t indirect_bloc
     uint32_t l1_idx = idx / fs->ptrs_per_block;
     uint32_t l2_idx = idx % fs->ptrs_per_block;
 
-    uint32_t *buf = (uint32_t *)kmalloc(fs->block_size);
+    uint32_t *buf = (uint32_t *)kalloc(fs->block_size);
     if (!buf)
         return EXT2_ERR_NO_MEM;
 
@@ -651,7 +651,7 @@ static ext2_error_t assign_triple_indirect(ext2_fs_t *fs, uint32_t indirect_bloc
     uint32_t l1_idx        = idx / ptrs_per_dind;
     uint32_t l2_idx        = idx % ptrs_per_dind;
 
-    uint32_t *buf = (uint32_t *)kmalloc(fs->block_size);
+    uint32_t *buf = (uint32_t *)kalloc(fs->block_size);
     if (!buf)
         return EXT2_ERR_NO_MEM;
 

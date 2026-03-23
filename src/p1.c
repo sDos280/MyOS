@@ -4,7 +4,7 @@
 void p1_main() {
     uint32_t i = 0;
     
-    void *addr = mmap(0x40000000, 0x1000, PPROT_WRITE);
+    void *addr = mmap((void *)0x40000000, 0x1000, PPROT_WRITE);
 
     int *ptr = (int*)addr;
 
