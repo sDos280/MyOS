@@ -180,6 +180,53 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
     return FLATFS_OK;
 }
 
+flatfs_err_t flatfs_read(flatfs_t *fs,
+                         const char *name,
+                         uint32_t offset,
+                         uint8_t *buf,
+                         uint32_t size,
+                         uint32_t *bytes_read) {
+    if (!fs || !name || !buf || !bytes_read)
+        return FLATFS_ERR_INVALID;
+
+    uint32_t inode_idx;
+    flatfs_err_t err = get_file_ino_by_name(fs, name, &inode_idx);
+    if (err != FLATFS_OK)
+        return err;
+
+    flatfs_inode_t inode;
+    err = get_inode_by_index(fs, inode_idx, &inode);
+    if (err != FLATFS_OK)
+        return err;
+
+    if (offset >= inode.size) {
+        *bytes_read = 0;
+        return FLATFS_OK;
+    }
+
+    size = MIN(size, inode.size - offset);
+
+    uint32_t br = 0;
+    while (br < size) {
+        uint32_t block_idx    = (offset + br) / FLATFS_BLOCK_SIZE;
+        uint32_t local_offset = (offset + br) % FLATFS_BLOCK_SIZE;
+        uint32_t local_size   = MIN(FLATFS_BLOCK_SIZE - local_offset, size - br);
+
+        uint8_t block_buf[FLATFS_BLOCK_SIZE];
+
+        if (ata_read28_request(fs->drive, FLATFS_SECTOR_DATA_START + inode.blocks[block_idx],
+                               1, block_buf) != 0)
+            return FLATFS_ERR_IO;
+
+        memcpy(buf + br, block_buf + local_offset, local_size);
+
+        br += local_size;
+    }
+
+    *bytes_read = br;
+    return FLATFS_OK;
+}
+
 /* =========================================================================
  * INTERNAL HELPERS
  * ========================================================================= */
