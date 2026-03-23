@@ -43,3 +43,33 @@ flatfs_err_t flatfs_format(ata_drive_t *drive,
 
     return FLATFS_OK;
 }
+
+flatfs_err_t flatfs_mount(flatfs_t *fs, ata_drive_t *drive) {
+    if (!fs || !drive)
+        return FLATFS_ERR_INVALID;
+
+    if (!drive->exists)
+        return FLATFS_ERR_NO_DRIVE;
+
+    flatfs_superblock_t sb;
+    uint8_t ata_err = ata_read28_request(drive, FLATFS_SECTOR_SUPERBLOCK, 1, (uint8_t *)&sb);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
+    if (sb.magic != FLATFS_MAGIC)
+        return FLATFS_ERR_BAD_MAGIC;
+
+    fs->drive = drive;
+    memcpy(&fs->sb, &sb, sizeof(flatfs_superblock_t));
+
+    ata_err = ata_read28_request(drive, FLATFS_SECTOR_INODE_BITMAP, 1, fs->inode_bitmap);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
+    ata_err = ata_read28_request(drive, FLATFS_SECTOR_BLOCK_BITMAP, 1, fs->block_bitmap);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
+    fs->dirty = 0;
+    return FLATFS_OK;
+}

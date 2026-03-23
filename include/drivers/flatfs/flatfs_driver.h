@@ -105,7 +105,7 @@ typedef struct {
     flatfs_superblock_t sb;           /* cached superblock (sector 0)         */
     uint8_t inode_bitmap[(FLATFS_MAX_FILES  + 7) / 8]; /* 1 bit per inode    */
     uint8_t block_bitmap[(FLATFS_MAX_BLOCKS + 7) / 8]; /* 1 bit per block    */
-    uint8_t sb_dirty;                 /* use to indicate if the superblock got dirty */
+    uint8_t dirty;                 /* use to indicate if memory got dirty */
 } flatfs_t;
 
 /* ─── lifecycle ────────────────────────────────────────────────────────────── */
