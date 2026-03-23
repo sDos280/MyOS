@@ -61,3 +61,55 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
     *inode_idx = ino;
     return FLATFS_OK;
 }
+
+flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
+    if (!fs || !name)
+        return FLATFS_ERR_INVALID;
+
+    uint8_t err;
+    flatfs_inode_t inode;
+    uint32_t i;
+    uint8_t found = 0;
+
+    for (i = 0; i < fs->sb.total_inodes; i++) {
+        err = ata_read28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
+                                 1, (uint8_t *)&inode);
+        if (err != 0)
+            return FLATFS_ERR_IO;
+
+        if (inode.in_use &&
+            strncmp(inode.name, name, FLATFS_NAME_MAX) == 0) {
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found)
+        return FLATFS_ERR_NOT_FOUND;
+
+    bitmap_clear(fs->inode_bitmap, i);
+
+    for (uint32_t j = 0; j < inode.block_count; j++)
+        bitmap_clear(fs->block_bitmap, inode.blocks[j]);
+
+    inode.in_use = 0;
+    fs->sb.free_inodes++;
+    fs->sb.free_blocks += inode.block_count;
+
+    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
+                            1, (uint8_t *)&inode) != 0)
+        return FLATFS_ERR_IO;
+
+    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_BITMAP,
+                            1, fs->inode_bitmap) != 0)
+        return FLATFS_ERR_IO;
+
+    if (ata_write28_request(fs->drive, FLATFS_SECTOR_BLOCK_BITMAP,
+                            1, fs->block_bitmap) != 0)
+        return FLATFS_ERR_IO;
+
+    if (ata_flush_cache(fs->drive) != 0)
+        return FLATFS_ERR_IO;
+
+    return FLATFS_OK;
+}
