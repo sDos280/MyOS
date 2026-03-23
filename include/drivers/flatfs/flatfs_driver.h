@@ -5,11 +5,11 @@
 
 /* ─── tunables ─────────────────────────────────────────────────────────────── */
 
-#define FLATFS_BLOCK_SIZE     ATA_SECTOR_SIZE  /* 1 block = 1 ATA sector (512 B)  */
-#define FLATFS_MAX_FILES      128              /* maximum number of files          */
-#define FLATFS_MAX_BLOCKS     4096             /* total data blocks on the drive   */
-#define FLATFS_DIRECT_BLOCKS  8               /* block pointers per inode         */
-#define FLATFS_NAME_MAX       32              /* max filename length (incl. NUL)   */
+#define FLATFS_BLOCK_SIZE     ATA_SECTOR_SIZE  /* 1 block = 1 ATA sector (512 B)    */
+#define FLATFS_MAX_FILES      128              /* maximum number of files           */
+#define FLATFS_MAX_BLOCKS     4096             /* total data blocks on the drive    */
+#define FLATFS_DIRECT_BLOCKS  8                /* block pointers per inode          */
+#define FLATFS_NAME_MAX       32               /* max filename length (incl. NUL)   */
 
 #define FLATFS_MAGIC          0x464C5453U     /* "FLTS" */
 
