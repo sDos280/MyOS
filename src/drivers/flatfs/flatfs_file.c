@@ -6,6 +6,7 @@
 
 static flatfs_err_t get_file_ino_by_name(flatfs_t *fs, const char *name, uint32_t * inode_idx);
 static flatfs_err_t get_inode_by_index(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode);
+static flatfs_err_t get_free_block(flatfs_t *fs, uint32_t *block_index);
 
 flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
                             uint8_t permissions, uint32_t *inode_idx) {
@@ -14,6 +15,7 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
 
     flatfs_inode_t inode;
 
+    uint32_t * inode_idx_copy = inode_idx;
     /* check if file with the same name already exists (pass inode index for function to work properly)*/
     flatfs_err_t err = get_file_ino_by_name(fs, name, inode_idx);
     if (err == FLATFS_OK)
@@ -59,8 +61,10 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
     if (ata_write28_request(fs->drive, FLATFS_SECTOR_BLOCK_BITMAP,
                             1, fs->block_bitmap) != 0)
         return FLATFS_ERR_IO;
-
-    *inode_idx = ino;
+    
+    if (inode_idx_copy)
+        *inode_idx = ino;
+    
     return FLATFS_OK;
 }
 
@@ -68,7 +72,6 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
     if (!fs || !name)
         return FLATFS_ERR_INVALID;
 
-    uint8_t err;
     flatfs_inode_t inode;
     uint32_t i;
     uint8_t found = 0;

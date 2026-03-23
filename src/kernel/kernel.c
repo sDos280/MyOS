@@ -7,6 +7,7 @@
 #include "mm/paging.h"
 #include "mm/kheap.h"
 #include "mm/pmm.h"
+#include "drivers/flatfs/flatfs_driver.h"
 #include "drivers/keyboard_driver.h"
 #include "drivers/ata_driver.h"
 #include "multitasking/process.h"
@@ -25,6 +26,8 @@ void print_process_list(process_t *head);
 void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
     multiboot_info_t multiboot_info_structure;
     tty_t tty;
+    ata_drive_t drive_prime_master;
+
     tty_init(&tty);
     print_set_tty(&tty);
 
@@ -60,8 +63,32 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     ata_driver_init();  // initiate the ata driver
     printf("Ata driver initialized.\n");
+    
+    asm volatile ("sti"); // enable interrupts
 
-    process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
+    /* setup information on the first primery master drive */
+    identify_device_data_t identify_buf;
+    drive_prime_master.device_id.io_base = ATA_PRIMARY_IO;
+    drive_prime_master.device_id.ctrl_base = ATA_PRIMARY_CTRL;
+    drive_prime_master.device_id.master = 0;
+    drive_prime_master.exists = 1;
+
+    uint8_t _ = ata_send_identify_command(&drive_prime_master, &identify_buf);
+    if (_ == 1) PANIC("ATA identify error");
+    drive_prime_master.size_in_sectors = identify_buf.UserAddressableSectors;
+
+    /* setup flat filesystem on the primery master drive */
+    flatfs_err_t err = flatfs_format(&drive_prime_master, FLATFS_MAX_BLOCKS, FLATFS_MAX_FILES);
+    if (err != FLATFS_OK) printf("Got %d error while formating", err);
+    printf("Format primery master drive to flat filesystem format \n");
+    
+    flatfs_t fs;
+    err = flatfs_mount(&fs, &drive_prime_master);
+    if (err != FLATFS_OK) PANIC("FLATFS got mount error");
+
+    err = flatfs_create(&fs, "FirstFile", FLATFS_PERMISSION_R, NULL);
+
+    /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);
 
     scheduler_init();
@@ -71,7 +98,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     print_process_list(p1);
 
-    scheduler_schedule(); /* start scheduling */
+    scheduler_schedule();*/ /* start scheduling */
 
     while (1);
 }

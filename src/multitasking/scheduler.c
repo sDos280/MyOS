@@ -5,6 +5,7 @@
 #include "utils.h"
 
 /* define in process */
+uint8_t scheduler_on;
 static process_t * idle_process;
 static process_t * processes_ready_queue;
 static process_t * processes_zombie_queue;
@@ -53,6 +54,11 @@ void scheduler_init() {
     current_process = idle_process;
     processes_ready_queue = NULL;
     processes_zombie_queue = NULL;
+    scheduler_on = 0;
+}
+
+void scheduler_set_on() {
+    scheduler_on = 1;
 }
 
 void scheduler_add_process_to_ready_queue(process_t * process) {
@@ -88,6 +94,8 @@ process_t * scheduler_get_next_process() {
 void scheduler_schedule() {
     /* first of all remove all zombie process
        so next process wouldn't be a zombie status kind */
+    if (!scheduler_on) return;
+
     scheduler_remove_zombie_processes();
 
     /* Fix: There is a need to check what will happen if current process = next process */

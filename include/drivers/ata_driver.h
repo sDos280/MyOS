@@ -53,7 +53,7 @@ typedef struct device_id_struct {
 typedef struct ata_drive_struct {
     device_id_t device_id;
     uint32_t size_in_sectors;  // size of the drive in sectors (as defined above)
-    uint8_t exists;         // 0 if driver api request handled without error, else 1 
+    uint8_t exists;         // 1 if deriver exists else 0
 } ata_drive_t;
 
 typedef struct __attribute__((packed)) identify_device_data_struct {
