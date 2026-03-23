@@ -2,6 +2,9 @@
 #include "bitmap_util.h"
 #include "utils.h"
 
+static flatfs_err_t get_file_ino_by_name(flatfs_t *fs, const char *name, uint32_t * inode_idx);
+static flatfs_err_t get_inode_by_index(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode);
+
 flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
                             uint8_t permissions, uint32_t *inode_idx) {
     if (!fs || !name || !inode_idx)
@@ -9,16 +12,13 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
 
     flatfs_inode_t inode;
 
-    /* check if file with the same name already exists */
-    for (uint32_t i = 0; i < fs->sb.total_inodes; i++) {
-        if (ata_read28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
-                               1, (uint8_t *)&inode) != 0)
-            return FLATFS_ERR_IO;
-
-        if (inode.in_use &&
-            strncmp(inode.name, name, FLATFS_NAME_MAX) == 0)
-            return FLATFS_ERR_EXISTS;
-    }
+    /* check if file with the same name already exists (pass inode index for function to work properly)*/
+    flatfs_err_t err = get_file_ino_by_name(fs, name, inode_idx);
+    if (err == FLATFS_OK)
+        return FLATFS_ERR_EXISTS;
+    
+    if (err != FLATFS_ERR_NOT_FOUND)
+        return err;
 
     /* find free inode */
     uint32_t ino;
@@ -71,23 +71,18 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
     uint32_t i;
     uint8_t found = 0;
 
-    for (i = 0; i < fs->sb.total_inodes; i++) {
-        err = ata_read28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
-                                 1, (uint8_t *)&inode);
-        if (err != 0)
-            return FLATFS_ERR_IO;
+    /* check if file with the same name already exists (pass inode index for function to work properly)*/
+    uint32_t inode_idx;
+    flatfs_err_t err = get_file_ino_by_name(fs, name, &inode_idx);
+    if (err != FLATFS_OK)
+        return err;
+    
+    /* get inode */
+    err = get_inode_by_index(fs, inode_idx, &inode);
+    if (err != FLATFS_OK)
+            return err;
 
-        if (inode.in_use &&
-            strncmp(inode.name, name, FLATFS_NAME_MAX) == 0) {
-            found = 1;
-            break;
-        }
-    }
-
-    if (!found)
-        return FLATFS_ERR_NOT_FOUND;
-
-    bitmap_clear(fs->inode_bitmap, i);
+    bitmap_clear(fs->inode_bitmap, inode_idx);
 
     for (uint32_t j = 0; j < inode.block_count; j++)
         bitmap_clear(fs->block_bitmap, inode.blocks[j]);
@@ -96,6 +91,7 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
     fs->sb.free_inodes++;
     fs->sb.free_blocks += inode.block_count;
 
+    /* write back changes */
     if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
                             1, (uint8_t *)&inode) != 0)
         return FLATFS_ERR_IO;
@@ -109,6 +105,57 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
         return FLATFS_ERR_IO;
 
     if (ata_flush_cache(fs->drive) != 0)
+        return FLATFS_ERR_IO;
+
+    return FLATFS_OK;
+}
+
+flatfs_err_t flatfs_write(flatfs_t *fs,
+                          const char *name,
+                          uint32_t offset,
+                          const uint8_t *buf,
+                          uint32_t size) {
+
+}
+
+/* =========================================================================
+ * INTERNAL HELPERS
+ * ========================================================================= */
+/*
+ * Find (if exists) the inode index of a file with the passed name.
+ */
+static flatfs_err_t get_file_ino_by_name(flatfs_t *fs, const char *name, uint32_t * inode_idx) {
+    if (!fs || !name || !inode_idx)
+        return FLATFS_ERR_INVALID;
+    
+    flatfs_inode_t inode;
+
+    for (uint32_t i = 0; i < fs->sb.total_inodes; i++) {
+        if (ata_read28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
+                               1, (uint8_t *)&inode) != 0)
+            return FLATFS_ERR_IO;
+
+        if (inode.in_use && strncmp(inode.name, name, FLATFS_NAME_MAX) == 0) {
+            *inode_idx = i;
+            return FLATFS_OK;
+        }
+    }
+
+    return FLATFS_ERR_NOT_FOUND;
+}
+
+/*
+ * Get the inode data of the spesefied inode index.
+ */
+static flatfs_err_t get_inode_by_index(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode) {
+    if (!fs || !inode)
+        return FLATFS_ERR_INVALID;
+
+    if (bitmap_get(fs->inode_bitmap, inode_idx) == 0)
+        return FLATFS_ERR_NOT_FOUND;
+
+    if (ata_read28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + inode_idx,
+                           1, (uint8_t *)inode) != 0)
         return FLATFS_ERR_IO;
 
     return FLATFS_OK;
