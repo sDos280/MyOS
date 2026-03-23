@@ -7,6 +7,9 @@ flatfs_err_t flatfs_format(ata_drive_t *drive,
     if (!drive)
         return FLATFS_ERR_INVALID;
 
+    if (!drive->exists)
+        return FLATFS_ERR_NO_DRIVE;
+    
     if (total_blocks + FLATFS_SECTOR_DATA_START > drive->size_in_sectors)
         total_blocks = drive->size_in_sectors - FLATFS_SECTOR_DATA_START;
     if (total_blocks > FLATFS_MAX_BLOCKS)
@@ -70,6 +73,28 @@ flatfs_err_t flatfs_mount(flatfs_t *fs, ata_drive_t *drive) {
     if (ata_err == 1)
         return FLATFS_ERR_IO;
 
-    fs->dirty = 0;
+    return FLATFS_OK;
+}
+
+flatfs_err_t flatfs_unmount(flatfs_t *fs) {
+    if (!fs)
+        return FLATFS_ERR_INVALID;
+
+    uint8_t ata_err = ata_write28_request(fs->drive, FLATFS_SECTOR_SUPERBLOCK, 1, (uint8_t *)&fs->sb);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
+    ata_err = ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_BITMAP, 1, fs->inode_bitmap);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
+    ata_err = ata_write28_request(fs->drive, FLATFS_SECTOR_BLOCK_BITMAP, 1, fs->block_bitmap);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
+    ata_err = ata_flush_cache(fs->drive);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+
     return FLATFS_OK;
 }
