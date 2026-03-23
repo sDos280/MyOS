@@ -99,22 +99,11 @@ ata_responce_t ata_responce;
                         WAIT HELPERS
    ========================================================= */
 
-/**
- * Function: ata_wait_bsy
- * -------------------------------------
- * Waits until the drive is no longer busy (BSY flag clears).
- */
 void ata_wait_bsy(ata_drive_t *drv) {
     while (inb(drv->device_id.ctrl_base) & ATA_SR_BSY)
         asm volatile("hlt");
 }
 
-/**
- * Function: ata_wait_drq
- * -------------------------------------
- * Waits until the drive signals it is ready to transfer
- * data (DRQ flag set).
- */
 void ata_wait_drq(ata_drive_t *drv) {
     while (!(inb(drv->device_id.ctrl_base) & ATA_SR_DRQ))
         asm volatile("hlt");
@@ -207,12 +196,6 @@ static uint8_t ata_handle_write_single_sector_responce() {
                         DRIVER INIT
    ========================================================= */
 
-/**
- * Function: initiate_ata_driver
- * -------------------------------------
- * Initializes request/response state and registers handlers
- * for ATA primary/secondary device IRQ lines (46,47).
- */
 void ata_driver_init() {
     memset((void*)&ata_request, 0, sizeof(ata_request_t));
     memset((void*)&ata_responce, 0, sizeof(ata_responce_t));
@@ -225,14 +208,6 @@ void ata_driver_init() {
                  COMMAND SENDING FUNCTIONS
    ========================================================= */
 
-/**
- * Function: ata_send_identify_command
- * -------------------------------------
- * Sends the IDENTIFY command to an ATA device and waits for
- * the IRQ handler to copy the response into memory.
- *
- * Returns: 1 on error, 0 on success
- */
 uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *buffer) {
     ata_request.device_id  = drive->device_id;
     ata_request.pending    = 0;
@@ -261,11 +236,6 @@ uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *bu
     return ata_responce.error;
 }
 
-/**
- * Function: ata_read28_request
- * -------------------------------------
- * Sends a 28-bit LBA sector read request.
- */
 uint8_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
     ata_request.device_id  = drive->device_id;
     ata_request.pending    = 0;
@@ -297,13 +267,6 @@ uint8_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, u
     return ata_responce.error;
 }
 
-/**
- * Function: ata_write28_request
- * -------------------------------------
- * Sends a 28-bit LBA sector write request and writes the
- * sector data manually through PIO, waiting for IRQ after
- * each 512-byte sector completion.
- */
 uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
     ata_request.device_id  = drive->device_id;
     ata_request.pending    = 0;
@@ -349,14 +312,6 @@ uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, 
     return ata_responce.error;
 }
 
-/**
- * Function: ata_flush_cache
- * --------------------------------------
- * Sends ATA_CMD_FLUSH to make sure the disk commits its
- * internal write cache to physical media. This is important
- * after write operations before shutting down or reading
- * sectors that may still be cached.
- */
 uint8_t ata_flush_cache(ata_drive_t *drive) {
     // Prepare driver state
     ata_request.device_id = drive->device_id;
