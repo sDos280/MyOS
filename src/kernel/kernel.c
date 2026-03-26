@@ -101,7 +101,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     "A tiny verse on disk will stay,\n"
     "Until the kernel reads one day.\n";
     uint32_t bytes_read;
-    err = flatfs_read(&fs, "FirstFile", 0, poem, sizeof(poem), &bytes_read);
+    err = flatfs_write(&fs, "FirstFile", 0, poem, sizeof(poem));
+    if (err != FLATFS_OK) PANIC("FLATFS got error while writing file");
 
     /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);

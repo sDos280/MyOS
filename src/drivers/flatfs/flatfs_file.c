@@ -4,8 +4,6 @@
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-static flatfs_err_t flatfs_find(flatfs_t *fs, const char *name, uint32_t * inode_idx);
-static flatfs_err_t flatfs_get_inode_by_index(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode);
 static flatfs_err_t get_free_block(flatfs_t *fs, uint32_t *block_index);
 
 flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,

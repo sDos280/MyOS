@@ -1,4 +1,5 @@
 #include "drivers/flatfs/flatfs_driver.h"
+#include "bitmap_util.h"
 #include "utils.h"
 
 flatfs_err_t flatfs_stat(flatfs_t *fs,
