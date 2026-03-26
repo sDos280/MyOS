@@ -94,6 +94,15 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     uint32_t ino;
     err = flatfs_create(&fs, "FirstFile", FLATFS_PERMISSION_R, &ino);
     if (err != FLATFS_OK) PANIC("FLATFS got creating the file");
+
+    char poem[] =
+    "In silent blocks the bytes now sleep,\n"
+    "On spinning paths their secrets keep.\n"
+    "A tiny verse on disk will stay,\n"
+    "Until the kernel reads one day.\n";
+    uint32_t bytes_read;
+    err = flatfs_read(&fs, "FirstFile", 0, poem, sizeof(poem), &bytes_read);
+
     /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);
 

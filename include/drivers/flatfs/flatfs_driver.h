@@ -225,6 +225,15 @@ flatfs_err_t flatfs_find(flatfs_t *fs,
                          const char *name,
                          uint32_t *inode_idx);
 
+/*
+ * flatfs_get_inode_by_index
+ * Return the inode spesified by the index.
+ * Writes the index into *inode_idx. Returns FLATFS_ERR_NOT_FOUND if absent.
+ */
+flatfs_err_t flatfs_get_inode_by_index(flatfs_t *fs,
+                         uint32_t inode_idx,
+                         flatfs_inode_t *inode);
+
 /* ─── directory-style listing ──────────────────────────────────────────────── */
 
 /*
