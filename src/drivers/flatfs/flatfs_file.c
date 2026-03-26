@@ -228,6 +228,34 @@ flatfs_err_t flatfs_read(flatfs_t *fs,
     return FLATFS_OK;
 }
 
+flatfs_err_t flatfs_truncate(flatfs_t *fs,
+                             const char *name,
+                             uint32_t new_size) {
+    if (!fs || !name)
+        return FLATFS_ERR_INVALID;
+
+    flatfs_inode_t inode;
+    flatfs_err_t err = flatfs_stat(fs, name, &inode);
+    if (err != FLATFS_OK)
+        return err;
+
+    if (new_size > inode.size)
+        return FLATFS_ERR_INVALID;
+
+    uint32_t new_block_count =
+        (new_size == 0) ? 0 : ((new_size + FLATFS_BLOCK_SIZE - 1) / FLATFS_BLOCK_SIZE);
+
+    for (uint32_t i = new_block_count; i < inode.block_count; i++) {
+        bitmap_clear(fs->block_bitmap, inode.blocks[i]);
+        fs->sb.free_blocks++;
+    }
+
+    inode.block_count = new_block_count;
+    inode.size = new_size;
+
+    return FLATFS_OK;
+}
+
 /* =========================================================================
  * INTERNAL HELPERS
  * ========================================================================= */
