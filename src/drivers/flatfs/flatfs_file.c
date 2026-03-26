@@ -15,7 +15,6 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
 
     flatfs_inode_t inode;
 
-    uint32_t * inode_idx_copy = inode_idx;
     /* check if file with the same name already exists (pass inode index for function to work properly)*/
     flatfs_err_t err = get_file_ino_by_name(fs, name, inode_idx);
     if (err == FLATFS_OK)
@@ -62,8 +61,7 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
                             1, fs->block_bitmap) != 0)
         return FLATFS_ERR_IO;
     
-    if (inode_idx_copy)
-        *inode_idx = ino;
+    *inode_idx = ino;
     
     return FLATFS_OK;
 }

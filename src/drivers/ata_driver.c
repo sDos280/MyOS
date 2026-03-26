@@ -78,8 +78,9 @@ typedef struct ata_responce_struct {
 
     union {
         volatile struct {
-            uint32_t sector_index; // Which sector was just read in this IRQ cycle
-            uint8_t *buffer;      // Memory destination for disk → RAM data
+            uint32_t sector_index;  // Which sector was just read in this IRQ cycle
+            uint32_t sectors_read;  // The amount of sectors already read
+            uint8_t *buffer;        // Memory destination for disk → RAM data
         } read_resp;
 
         volatile struct {
@@ -169,13 +170,12 @@ done:
  * Stores it into the provided RAM buffer sequentially.
  */
 static uint8_t ata_handle_read_single_sector_responce() {
-    uint32_t offset_words = (ATA_SECTOR_SIZE / 2) * ata_responce.specific.read_resp.sector_index;
+    uint32_t offset_words = (ATA_SECTOR_SIZE / 2) * ata_responce.specific.read_resp.sectors_read;
 
     // Read 512 bytes = 256 16-bit values
     for (uint32_t i = 0; i < (ATA_SECTOR_SIZE / 2); i++) {
         uint16_t t = inw(ata_responce.device_id.io_base + ATA_REG_DATA);
-        ((uint16_t*)ata_responce.specific.read_resp.buffer)[offset_words + i] =
-             t;
+        ((uint16_t*)ata_responce.specific.read_resp.buffer)[offset_words + i] = t;
     }
 
     ata_responce.specific.read_resp.sector_index++;
@@ -217,6 +217,7 @@ uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *bu
     ata_responce.done        = 0;
     ata_responce.error       = 0;
     ata_responce.specific.read_resp.sector_index = 0;
+    ata_responce.specific.read_resp.sectors_read = 0;
     ata_responce.specific.read_resp.buffer  = (uint8_t*)buffer;
 
     // Select device
@@ -247,7 +248,9 @@ uint8_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, u
     ata_responce.done        = 0;
     ata_responce.error       = 0;
     ata_responce.specific.read_resp.sector_index = sector;
+    ata_responce.specific.read_resp.sectors_read = 0;
     ata_responce.specific.read_resp.buffer = buffer;
+
 
     // Select device + LBA high bits
     outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
@@ -360,33 +363,57 @@ static uint32_t ata_response_handler(cpu_status_t *regs) {
         goto irq_end;
     }
 
-    ata_request.pending = 0;
-
     switch (ata_request.request_type) {
         case ATA_CMD_IDENTIFY:
+            ata_request.pending = 0;
             ata_responce.error = ata_handle_identify_responce();
+            ata_responce.done = 1;
             break;
+
         case ATA_CMD_READ_PIO:
-            ata_handle_read_single_sector_responce();
+            ata_responce.error = ata_handle_read_single_sector_responce();
+            if (ata_responce.error) {
+                ata_request.pending = 0;
+                ata_responce.done = 1;
+                break;
+            }
+
+            ata_responce.specific.read_resp.sectors_read++;
+
+            if (ata_responce.specific.read_resp.sectors_read >=
+                ata_request.specific.read.sector_count) {
+                ata_request.pending = 0;
+                ata_responce.done = 1;
+            } else {
+                ata_request.pending = 1;
+                ata_responce.done = 0;
+            }
             break;
+
         case ATA_CMD_WRITE_PIO:
+            ata_request.pending = 0;
             ata_handle_write_single_sector_responce();
+            ata_responce.done = 1;
             break;
+
         case ATA_CMD_FLUSH:
-            // FLUSH does not read/write sectors. We only check flags.
+            ata_request.pending = 0;
             st = inb(ata_request.device_id.io_base + ATA_REG_STATUS);
-            if (st & ATA_SR_ERR) ata_responce.error = 1;
+            if (st & ATA_SR_ERR)
+                ata_responce.error = 1;
+            ata_responce.done = 1;
             break;
+
         default:
+            ata_request.pending = 0;
             printf("ATA Drive Error: Unknown command\n");
             err = -EIRQ;
+            ata_responce.done = 1;
             break;
     }
 
-    ata_responce.done = 1;
-
 irq_end:
-    /* Review: we should probably not send the pic eio here */
+    /* Review: we should probably not send the pic eoi here */
     outb(PIC2_COMMAND, PIC_EOI);
     outb(PIC1_COMMAND, PIC_EOI);
     return err;

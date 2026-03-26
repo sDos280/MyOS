@@ -64,6 +64,9 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     ata_driver_init();  // initiate the ata driver
     printf("Ata driver initialized.\n");
     
+    scheduler_init(); // initialize the scheduler
+    printf("Scheduler initialized.\n");
+
     asm volatile ("sti"); // enable interrupts
 
     /* setup information on the first primery master drive */
@@ -75,23 +78,26 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     uint8_t _ = ata_send_identify_command(&drive_prime_master, &identify_buf);
     if (_ == 1) PANIC("ATA identify error");
+    print_identify_device_data(&identify_buf);
     drive_prime_master.size_in_sectors = identify_buf.UserAddressableSectors;
 
     /* setup flat filesystem on the primery master drive */
     flatfs_err_t err = flatfs_format(&drive_prime_master, FLATFS_MAX_BLOCKS, FLATFS_MAX_FILES);
-    if (err != FLATFS_OK) printf("Got %d error while formating", err);
-    printf("Format primery master drive to flat filesystem format \n");
+    if (err != FLATFS_OK) printf("Got %d error while formating\n", err);
+    printf("Format primery master drive to flat filesystem format\n");
     
     flatfs_t fs;
     err = flatfs_mount(&fs, &drive_prime_master);
     if (err != FLATFS_OK) PANIC("FLATFS got mount error");
+    printf("Mount flat file system\n");
 
-    err = flatfs_create(&fs, "FirstFile", FLATFS_PERMISSION_R, NULL);
-
+    uint32_t ino;
+    err = flatfs_create(&fs, "FirstFile", FLATFS_PERMISSION_R, &ino);
+    if (err != FLATFS_OK) PANIC("FLATFS got creating the file");
     /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);
 
-    scheduler_init();
+   
 
     scheduler_add_process_to_ready_queue(p1);
     scheduler_add_process_to_ready_queue(p2);

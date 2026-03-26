@@ -33,7 +33,10 @@ flatfs_err_t flatfs_format(ata_drive_t *drive,
     memset(zero_sector, 0, ATA_SECTOR_SIZE);
 
     /* zero both bitmap sectors (1 and 2) */
-    ata_err = ata_write28_request(drive, FLATFS_SECTOR_INODE_BITMAP, 2, zero_sector);
+    ata_err = ata_write28_request(drive, FLATFS_SECTOR_INODE_BITMAP, 1, zero_sector);
+    if (ata_err == 1)
+        return FLATFS_ERR_IO;
+    ata_err = ata_write28_request(drive, FLATFS_SECTOR_BLOCK_BITMAP, 1, zero_sector);
     if (ata_err == 1)
         return FLATFS_ERR_IO;
 

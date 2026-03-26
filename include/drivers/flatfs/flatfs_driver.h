@@ -145,7 +145,7 @@ flatfs_err_t flatfs_unmount(flatfs_t *fs);
  * flatfs_create
  * Allocate a new inode with the given name and write it to disk.
  * Returns FLATFS_ERR_EXISTS if a file with that name is already present.
- * On success, writes the inode index into *inode_idx if non-NULL.
+ * On success, writes the inode index into *inode_idx.
  */
 flatfs_err_t flatfs_create(flatfs_t *fs,
                            const char *name,
