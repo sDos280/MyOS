@@ -254,6 +254,44 @@ flatfs_err_t flatfs_truncate(flatfs_t *fs,
     return FLATFS_OK;
 }
 
+flatfs_err_t flatfs_rename(flatfs_t *fs,
+                           const char *old_name,
+                           const char *new_name) {
+    if (!fs || !old_name || !new_name)
+        return FLATFS_ERR_INVALID;
+
+    /* check if there is a file with the new_name */
+    uint32_t inox;
+    flatfs_err_t err = flatfs_find(fs, new_name, &inox);
+    if (err == FLATFS_OK)
+        return FLATFS_ERR_EXISTS;
+    if (err != FLATFS_ERR_NOT_FOUND)
+        return err;
+
+    /* find the old name file */
+    flatfs_inode_t inode;
+    err = flatfs_find(fs, old_name, &inox);
+    if (err != FLATFS_OK)
+        return err;
+
+    if (ata_read28_request(fs->drive,
+                           FLATFS_SECTOR_INODE_TABLE + inox,
+                           1,
+                           (uint8_t *)&inode) != 0)
+        return FLATFS_ERR_IO;
+
+    memset(inode.name, 0, FLATFS_NAME_MAX);
+    strncpy(inode.name, new_name, FLATFS_NAME_MAX);
+
+    if (ata_write28_request(fs->drive,
+                            FLATFS_SECTOR_INODE_TABLE + inox,
+                            1,
+                            (uint8_t *)&inode) != 0)
+        return FLATFS_ERR_IO;
+
+    return FLATFS_OK;
+}
+
 /* =========================================================================
  * INTERNAL HELPERS
  * ========================================================================= */
