@@ -3,62 +3,89 @@
 
 #include "drivers/ata_driver.h"  /* ata_drive_t, ata_read28_request, etc. */
 
-/* ─── tunables ─────────────────────────────────────────────────────────────── */
+/* ─── constants ───────────────────────────────────────────────────────────── */
 
-#define FLATFS_BLOCK_SIZE     ATA_SECTOR_SIZE  /* 1 block = 1 ATA sector (512 B)    */
-#define FLATFS_MAX_FILES      128              /* maximum number of files           */
-#define FLATFS_MAX_BLOCKS     4096             /* total data blocks on the drive    */
-#define FLATFS_DIRECT_BLOCKS  8                /* block pointers per inode          */
-#define FLATFS_NAME_MAX       32               /* max filename length (incl. NUL)   */
+#define FLATFS_MAGIC          0x464C5453U   /* "FLTS" */
 
-#define FLATFS_MAGIC          0x464C5453U     /* "FLTS" */
+#define FLATFS_DIRECT_BLOCKS  8
+#define FLATFS_NAME_MAX       32
+
+#define FLATFS_PERMISSION_X   1
+#define FLATFS_PERMISSION_W   2
+#define FLATFS_PERMISSION_R   4
+
+#define FLATFS_BLOCK_SUPERBLOCK 0
 
 /*
  * Sector layout on disk
  * ─────────────────────────────────────────────────────────────────
- *  Sector 0          │ Superblock
- *  Sector 1          │ Inode bitmap   (1 bit per inode slot)
- *  Sector 2          │ Block bitmap   (1 bit per data block)
- *  Sectors 3 … N-1   │ Inode table    (one inode per sector)
- *  Sectors N … end   │ Data region    (raw file data)
+ *  [ superblock ] Block  0 (and one block size)
+ *  [ inode bitmap ]
+ *  [ block bitmap ]
+ *  [ inode table ]
+ *  [ data blocks ]
  * ─────────────────────────────────────────────────────────────────
- *  N = 3 + FLATFS_MAX_FILES
- *
- * Every structure that is read or written is exactly one sector wide
- * so we never need to do sub-sector I/O.
- */
 
-#define FLATFS_SECTOR_SUPERBLOCK   0
-#define FLATFS_SECTOR_INODE_BITMAP 1
-#define FLATFS_SECTOR_BLOCK_BITMAP 2
-#define FLATFS_SECTOR_INODE_TABLE  3                           /* first inode sector */
-#define FLATFS_SECTOR_DATA_START   (3 + FLATFS_MAX_FILES)      /* first data sector  */
+/* ─── helpers ─────────────────────────────────────────────────────────────── */
 
-#define FLATFS_PERMISSION_X        1
-#define FLATFS_PERMISSION_W        2
-#define FLATFS_PERMISSION_R        4
+#define FLATFS_DIV_ROUND_UP(x, y) (((x) + (y) - 1) / (y))
+
+#define FLATFS_BLOCK_SIZE(sb) \
+    ((sb)->sectors_per_block * ATA_SECTOR_SIZE)
+
+#define FLATFS_BITMAP_BYTES(bits) \
+    FLATFS_DIV_ROUND_UP((bits), 8)
+
+#define FLATFS_BITMAP_BLOCKS(bits, sb) \
+    FLATFS_DIV_ROUND_UP(FLATFS_BITMAP_BYTES(bits), FLATFS_BLOCK_SIZE(sb))
+
+#define FLATFS_INODE_TABLE_BYTES(sb) \
+    ((sb)->total_inodes * sizeof(flatfs_inode_t))
+
+#define FLATFS_INODE_TABLE_BLOCKS(sb) \
+    FLATFS_DIV_ROUND_UP(FLATFS_INODE_TABLE_BYTES(sb), FLATFS_BLOCK_SIZE(sb))
+
+#define FLATFS_BLOCK_INODE_BITMAP(sb) \
+    ((sb)->inode_bitmap_start)
+
+#define FLATFS_BLOCK_BLOCK_BITMAP(sb) \
+    ((sb)->block_bitmap_start)
+
+#define FLATFS_BLOCK_INODE_TABLE(sb) \
+    ((sb)->inode_table_start)
+
+#define FLATFS_BLOCK_DATA_START(sb) \
+    ((sb)->data_start_block)
+
+#define FLATFS_DATA_BLOCK_SECTOR(sb, block_idx) \
+    ((sb)->data_start_block + block_idx)
 
 /* ─── on-disk / in-memory structures ──────────────────────────────────────── */
 
 /*
  * flatfs_superblock_t
- * Stored at sector FLATFS_SECTOR_SUPERBLOCK.
- * Padded to exactly ATA_SECTOR_SIZE bytes so a single sector read fills it.
  */
 typedef struct __attribute__((packed)) {
-    uint32_t magic;           /* must equal FLATFS_MAGIC                       */
-    uint32_t total_blocks;    /* usable data blocks (≤ FLATFS_MAX_BLOCKS)      */
-    uint32_t total_inodes;    /* inode slots in the table (≤ FLATFS_MAX_FILES) */
-    uint32_t free_blocks;     /* number of currently free data blocks          */
-    uint32_t free_inodes;     /* number of currently free inode slots          */
-    uint8_t  _pad[ATA_SECTOR_SIZE - 5 * sizeof(uint32_t)];
+    uint32_t magic;              /* must equal FLATFS_MAGIC                    */
+    uint32_t sectors_per_block;  /* the amound of sectors per block            */
+    uint32_t total_sectors;      /* drive size in sectors                      */
+    uint32_t total_blocks;       /* usable data blocks                         */
+    uint32_t total_inodes;       /* inode slots in the inode table             */
+    uint32_t free_blocks;        /* number of currently free data blocks       */
+    uint32_t free_inodes;        /* number of currently free inode slots       */
+    uint32_t inode_bitmap_start;         /* block index of inode bitmap */
+    uint32_t inode_bitmap_block_count;   /* block count of inode bitmap */
+    uint32_t block_bitmap_start;         /* block index of block bitmap */
+    uint32_t block_bitmap_block_count;   /* block count of block bitmap */
+    uint32_t inode_table_start;          /* block index of inode table  */
+    uint32_t inode_table_block_count;    /* block count of inode table  */
+    uint32_t data_start_block;           /* index of fist data block    */
+    uint8_t  _pad[ATA_SECTOR_SIZE - 14 * sizeof(uint32_t)];
 } flatfs_superblock_t;
 
 /*
  * flatfs_inode_t
- * One entry per file; each inode occupies exactly one sector so it can be
- * read and written with a single ata_read28_request / ata_write28_request call.
- * Sector on disk = FLATFS_SECTOR_INODE_TABLE + inode_idx.
+ * One entry per file;
  */
 typedef struct __attribute__((packed)) {
     char     name[FLATFS_NAME_MAX]; /* filename (NUL-terminated)               */
@@ -70,16 +97,6 @@ typedef struct __attribute__((packed)) {
     uint32_t block_count;           /* number of entries used in blocks[]      */
     uint32_t created_at;            /* unix timestamp                          */
     uint32_t modified_at;           /* unix timestamp                          */
-    uint8_t  _pad1[ATA_SECTOR_SIZE
-                   - FLATFS_NAME_MAX       /* name                             */
-                   - 1                    /* in_use                            */
-                   - 1                    /* permissions                       */
-                   - 2                    /* _pad0                             */
-                   - sizeof(uint32_t)     /* size                              */
-                   - FLATFS_DIRECT_BLOCKS * sizeof(uint32_t) /* blocks[]       */
-                   - sizeof(uint32_t)     /* block_count                       */
-                   - sizeof(uint32_t)     /* created_at                        */
-                   - sizeof(uint32_t)];   /* modified_at                       */
 } flatfs_inode_t;
 
 /* ─── error codes ──────────────────────────────────────────────────────────── */
@@ -87,13 +104,14 @@ typedef struct __attribute__((packed)) {
 typedef enum {
     FLATFS_OK            =  0,
     FLATFS_ERR_NO_SPACE  = -1,  /* disk or inode table is full               */
-    FLATFS_ERR_NOT_FOUND = -2,  /* file with that name does not exist        */
-    FLATFS_ERR_EXISTS    = -3,  /* a file with that name already exists      */
-    FLATFS_ERR_BAD_MAGIC = -4,  /* superblock magic mismatch (not formatted) */
-    FLATFS_ERR_INVALID   = -5,  /* NULL pointer or out-of-range argument     */
-    FLATFS_ERR_IO        = -6,  /* ata_read28_request / ata_write28_request failed */
-    FLATFS_ERR_CORRUPT   = -7,  /* on-disk data looks inconsistent           */
-    FLATFS_ERR_NO_DRIVE  = -8,  /* ata_drive_t has exists == 0               */
+    FLATFS_ERR_NO_MEM    = -2,  /* no more free memory                       */
+    FLATFS_ERR_NOT_FOUND = -3,  /* file with that name does not exist        */
+    FLATFS_ERR_EXISTS    = -4,  /* a file with that name already exists      */
+    FLATFS_ERR_BAD_MAGIC = -5,  /* superblock magic mismatch (not formatted) */
+    FLATFS_ERR_INVALID   = -6,  /* NULL pointer or out-of-range argument     */
+    FLATFS_ERR_IO        = -7,  /* ata_read28_request / ata_write28_request failed */
+    FLATFS_ERR_CORRUPT   = -8,  /* on-disk data looks inconsistent           */
+    FLATFS_ERR_NO_DRIVE  = -9,  /* ata_drive_t has exists == 0               */
 } flatfs_err_t;
 
 /* ─── file-system handle ───────────────────────────────────────────────────── */
@@ -107,24 +125,41 @@ typedef enum {
 typedef struct {
     ata_drive_t        *drive;        /* the ATA drive backing this FS        */
     flatfs_superblock_t sb;           /* cached superblock (sector 0)         */
-    uint8_t inode_bitmap[(FLATFS_MAX_FILES  + 7) / 8]; /* 1 bit per inode    */
-    uint8_t block_bitmap[(FLATFS_MAX_BLOCKS + 7) / 8]; /* 1 bit per block    */
+    uint8_t *inode_bitmap;            /* 1 bit per inode    */
+    uint8_t *block_bitmap;            /* 1 bit per block    */
 } flatfs_t;
 
 /* ─── lifecycle ────────────────────────────────────────────────────────────── */
 
 /*
- * flatfs_format
- * Write a fresh superblock, zeroed bitmaps, and an empty inode table to the
- * drive starting at sector 0. Destroys all existing data. Call once before
- * first use.
+ * Formats the drive.
  *
- * `total_blocks` must be <= FLATFS_MAX_BLOCKS and must fit on the drive
- * (drive->size_in_sectors >= FLATFS_SECTOR_DATA_START + total_blocks).
+ * total_inodes:
+ *     number of inode slots to create.
+ *
+ * sectors_per_block:
+ *     number of ATA sectors per FlatFS data block.
+ *
+ * total_blocks is no longer passed in. It should be computed from drive size:
+ *
+ * metadata sectors =
+ *     1
+ *   + inode_bitmap_sectors
+ *   + block_bitmap_sectors
+ *   + inode_table_sectors
+ *
+ * data sectors =
+ *     drive->size_in_sectors - metadata sectors
+ *
+ * total_blocks =
+ *     data sectors / sectors_per_block
+ *
+ * Because block_bitmap_sectors depends on total_blocks, the formatter should
+ * compute this iteratively until stable.
  */
 flatfs_err_t flatfs_format(ata_drive_t *drive,
-                           uint32_t total_blocks,
-                           uint32_t total_inodes);
+                           uint32_t total_inodes,
+                           uint32_t sectors_per_block);
 
 /*
  * flatfs_mount
@@ -266,5 +301,21 @@ flatfs_err_t flatfs_list(flatfs_t *fs, flatfs_list_cb cb, void *userdata);
 uint32_t     flatfs_free_blocks(const flatfs_t *fs);
 uint32_t     flatfs_free_inodes(const flatfs_t *fs);
 flatfs_err_t flatfs_check(flatfs_t *fs);
+
+/* ─── utils ──────────────────────────────────────────────────────── */
+
+/*
+ * flatfs_write_block
+ * Write FlatFS block into drive memory.
+ *  block_idx - block index in flatfs relative terms
+ *  data      - the data to be writen (must be a block size) */
+flatfs_err_t flatfs_write_block(flatfs_t *fs, uint32_t block_idx, const uint8_t *data);
+
+/*
+ * flatfs_read_block
+ * Read FlatFS block into drive memory.
+ *  block_idx - block index in flatfs relative terms
+ *  buffer    - buffer for read data (must be a block size) */
+flatfs_err_t flatfs_read_block(flatfs_t *fs, uint32_t block_idx, uint8_t *buffer);
 
 #endif /* FLATFS_H */
