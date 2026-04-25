@@ -6,6 +6,11 @@
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static flatfs_err_t get_free_data_block(flatfs_t *fs, uint32_t *block_index);
+static flatfs_err_t read_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode);
+static flatfs_err_t write_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode);
+static flatfs_err_t flush_inode_bitmap(flatfs_t *fs);
+static flatfs_err_t flush_block_bitmap(flatfs_t *fs);
+static flatfs_err_t flush_bitmaps(flatfs_t *fs);
 
 flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
                             uint8_t permissions, uint32_t *inode_idx) {
@@ -24,17 +29,20 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
 
     /* find free inode */
     uint32_t ino;
-    if (!bitmap_find_first_clear(fs->inode_bitmap, FLATFS_MAX_FILES, &ino))
+    if (!bitmap_find_first_clear(fs->inode_bitmap, fs->sb.total_inodes, &ino))
         return FLATFS_ERR_NO_SPACE;
 
     /* find free block */
     uint32_t block_idx;
-    if (!bitmap_find_first_clear(fs->block_bitmap, FLATFS_MAX_BLOCKS, &block_idx))
+    if (!bitmap_find_first_clear(fs->block_bitmap, fs->sb.total_blocks, &block_idx))
         return FLATFS_ERR_NO_SPACE;
 
     /* mark inode and block as used in bitmaps */
     bitmap_set(fs->inode_bitmap, ino);
     bitmap_set(fs->block_bitmap, block_idx);
+
+    fs->sb.free_inodes--;
+    fs->sb.free_blocks--;
 
     /* initialize inode */
     memset(&inode, 0, sizeof(flatfs_inode_t));
@@ -44,25 +52,14 @@ flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
     inode.size        = 0;
     inode.block_count = 1;
     memset(inode.blocks, 0, sizeof(inode.blocks));
-    inode.blocks[0]   = FLATFS_SECTOR_DATA_START + block_idx;
+    inode.blocks[0]   = fs->sb.data_start_block + block_idx;
 
     /* write inode to disk */
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + ino,
-                            1, (uint8_t *)&inode) != 0)
-        return FLATFS_ERR_IO;
-
-    /* write updated bitmaps back to disk */
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_BITMAP,
-                            1, fs->inode_bitmap) != 0)
-        return FLATFS_ERR_IO;
-
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_BLOCK_BITMAP,
-                            1, fs->block_bitmap) != 0)
-        return FLATFS_ERR_IO;
-    
     *inode_idx = ino;
     
-    return FLATFS_OK;
+    flush_bitmaps(fs);
+
+    return write_inode(fs, ino, &inode);
 }
 
 flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
@@ -70,7 +67,6 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
         return FLATFS_ERR_INVALID;
 
     flatfs_inode_t inode;
-    uint32_t i;
     uint8_t found = 0;
 
     /* check if file with the same name already exists (pass inode index for function to work properly)*/
@@ -84,30 +80,25 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name) {
     if (err != FLATFS_OK)
             return err;
 
-    bitmap_clear(fs->inode_bitmap, inode_idx);
+    /* mark inode as free */
+    inode.in_use = 0;
+    err = write_inode(fs, inode_idx, &inode);
+    if (err != FLATFS_OK)
+        return err;
 
+    /* free inode and data blocks in bitmaps */
+    bitmap_clear(fs->inode_bitmap, inode_idx);
     for (uint32_t j = 0; j < inode.block_count; j++)
         bitmap_clear(fs->block_bitmap, inode.blocks[j]);
 
-    inode.in_use = 0;
+    /* update superblock counts */
     fs->sb.free_inodes++;
     fs->sb.free_blocks += inode.block_count;
 
-    /* write back changes */
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + i,
-                            1, (uint8_t *)&inode) != 0)
-        return FLATFS_ERR_IO;
-
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_BITMAP,
-                            1, fs->inode_bitmap) != 0)
-        return FLATFS_ERR_IO;
-
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_BLOCK_BITMAP,
-                            1, fs->block_bitmap) != 0)
-        return FLATFS_ERR_IO;
-
-    if (ata_flush_cache(fs->drive) != 0)
-        return FLATFS_ERR_IO;
+    /* flush bitmaps to disk */
+    err = flush_bitmaps(fs);
+    if (err != FLATFS_OK)
+        return err;
 
     return FLATFS_OK;
 }
@@ -143,7 +134,6 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
 
         inode.blocks[inode.block_count] = free_block_idx;
         inode.block_count++;
-        fs->sb.free_blocks--;
     }
 
     /* read-modify-write each sector touched by this write */
@@ -309,6 +299,10 @@ static flatfs_err_t get_free_data_block(flatfs_t *fs, uint32_t *block_index) {
 
     bitmap_set(fs->block_bitmap, *block_index);
 
+    flush_block_bitmap(fs);
+    
+    fs->sb.free_blocks--;
+
     return FLATFS_OK;
 }
 
@@ -382,4 +376,24 @@ static flatfs_err_t write_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t
 
     kfree(buf);
     return FLATFS_OK;
+}
+
+static flatfs_err_t flush_inode_bitmap(flatfs_t *fs) {
+    return flatfs_write_blocks(fs, fs->sb.inode_bitmap_start,
+                               fs->sb.inode_bitmap_block_count,
+                               fs->inode_bitmap);
+}
+
+static flatfs_err_t flush_block_bitmap(flatfs_t *fs) {
+    return flatfs_write_blocks(fs, fs->sb.block_bitmap_start,
+                               fs->sb.block_bitmap_block_count,
+                               fs->block_bitmap);
+}
+
+static flatfs_err_t flush_bitmaps(flatfs_t *fs) {
+    flatfs_err_t err = flush_inode_bitmap(fs);
+    if (err != FLATFS_OK)
+        return err;
+
+    return flush_block_bitmap(fs);
 }
