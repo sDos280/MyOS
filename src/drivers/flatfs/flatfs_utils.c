@@ -6,8 +6,10 @@ flatfs_err_t flatfs_write_blocks(flatfs_t *fs,
                                   const uint8_t *data) {
     if (!fs || !data)
         return FLATFS_ERR_INVALID;
+    
+    uint32_t total_drive_blocks = fs->sb.total_sectors / fs->sb.sectors_per_block;
 
-    if (start_block_idx + block_count > fs->sb.total_blocks)
+    if (start_block_idx + block_count >= total_drive_blocks)
         return FLATFS_ERR_INVALID;
 
     uint8_t err = ata_write28_request(fs->drive,
@@ -25,7 +27,9 @@ flatfs_err_t flatfs_read_blocks(flatfs_t *fs,
     if (!fs || !buffer)
         return FLATFS_ERR_INVALID;
 
-    if (start_block_idx + block_count > fs->sb.total_blocks)
+    uint32_t total_drive_blocks = fs->sb.total_sectors / fs->sb.sectors_per_block;
+
+    if (start_block_idx + block_count >= total_drive_blocks)
         return FLATFS_ERR_INVALID;
 
     uint8_t err = ata_read28_request(fs->drive,
