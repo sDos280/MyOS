@@ -1,10 +1,11 @@
 #include "drivers/flatfs/flatfs_driver.h"
+#include "mm/kheap.h"
 #include "bitmap_util.h"
 #include "utils.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-static flatfs_err_t get_free_block(flatfs_t *fs, uint32_t *block_index);
+static flatfs_err_t get_free_data_block(flatfs_t *fs, uint32_t *block_index);
 
 flatfs_err_t flatfs_create(flatfs_t *fs, const char *name,
                             uint8_t permissions, uint32_t *inode_idx) {
@@ -136,7 +137,7 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
     uint32_t last_block_needed = (offset + size - 1) / FLATFS_BLOCK_SIZE;
     while (inode.block_count <= last_block_needed) {
         uint32_t free_block_idx;
-        err = get_free_block(fs, &free_block_idx);
+        err = get_free_data_block(fs, &free_block_idx);
         if (err != FLATFS_OK)
             return err;
 
@@ -297,20 +298,88 @@ flatfs_err_t flatfs_rename(flatfs_t *fs,
  * ========================================================================= */
 
 /*
- * Get a free block (if there is one)
+ * Get a free data block (if there is one). caller needs to update free blocks
  */
-static flatfs_err_t get_free_block(flatfs_t *fs, uint32_t *block_index) {
+static flatfs_err_t get_free_data_block(flatfs_t *fs, uint32_t *block_index) {
     if (!fs || !block_index)
         return FLATFS_ERR_INVALID;
 
-    if (bitmap_find_first_clear(fs->block_bitmap, FLATFS_MAX_BLOCKS, block_index) == 0)
+    if (bitmap_find_first_clear(fs->block_bitmap, fs->sb.total_blocks, block_index) == 0)
         return FLATFS_ERR_NO_SPACE;
 
     bitmap_set(fs->block_bitmap, *block_index);
 
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_BLOCK_BITMAP,
-                            1, fs->block_bitmap) != 0)
-        return FLATFS_ERR_IO;
+    return FLATFS_OK;
+}
 
+/*
+ * Read inode (by index) from inode table
+ */
+static flatfs_err_t read_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode) {
+    if (!fs || !inode)
+        return FLATFS_ERR_INVALID;
+    
+    if (inode_idx >= fs->sb.total_inodes)
+        return FLATFS_ERR_INVALID;
+    
+    uint32_t byte_offset = inode_idx * sizeof(flatfs_inode_t);
+    uint32_t first_block = byte_offset / FLATFS_BLOCK_SIZE(&fs->sb);
+    /* check if data span two blocks, that is the case, if last byte of inode is in next block */
+    uint32_t last_block  = (byte_offset + sizeof(flatfs_inode_t) - 1) / FLATFS_BLOCK_SIZE(&fs->sb);
+    uint32_t block_count = (first_block != last_block) ? 2 : 1;
+    uint32_t block_idx   = fs->sb.inode_table_start + first_block;
+
+    uint8_t *buf = (uint8_t *)kmalloc(FLATFS_BLOCK_SIZE(&fs->sb) * block_count);
+    if (!buf)
+        return FLATFS_ERR_NO_MEM;
+
+    flatfs_err_t err = flatfs_read_blocks(fs, block_idx, block_count, buf);
+    if (err != FLATFS_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    memcpy(inode, buf + (byte_offset % FLATFS_BLOCK_SIZE(&fs->sb)), sizeof(flatfs_inode_t));
+
+    kfree(buf);
+    return FLATFS_OK;
+}
+
+/*
+ * Write inode (by index) from inode table
+ */
+static flatfs_err_t write_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t *inode) {
+    if (!fs || !inode)
+        return FLATFS_ERR_INVALID;
+    
+    if (inode_idx >= fs->sb.total_inodes)
+        return FLATFS_ERR_INVALID;
+    
+    uint32_t byte_offset = inode_idx * sizeof(flatfs_inode_t);
+    uint32_t first_block = byte_offset / FLATFS_BLOCK_SIZE(&fs->sb);
+    /* check if data span two blocks, that is the case, if last byte of inode is in next block */
+    uint32_t last_block  = (byte_offset + sizeof(flatfs_inode_t) - 1) / FLATFS_BLOCK_SIZE(&fs->sb);
+    uint32_t block_count = (first_block != last_block) ? 2 : 1;
+    uint32_t block_idx   = fs->sb.inode_table_start + first_block;
+
+    uint8_t *buf = (uint8_t *)kmalloc(FLATFS_BLOCK_SIZE(&fs->sb) * block_count);
+    if (!buf)
+        return FLATFS_ERR_NO_MEM;
+
+    flatfs_err_t err = flatfs_read_blocks(fs, block_idx, block_count, buf);
+    if (err != FLATFS_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    memcpy(buf + (byte_offset % FLATFS_BLOCK_SIZE(&fs->sb)), inode, sizeof(flatfs_inode_t));
+
+    err = flatfs_write_blocks(fs, block_idx, block_count, buf);
+    if (err != FLATFS_OK) {
+        kfree(buf);
+        return err;
+    }
+
+    kfree(buf);
     return FLATFS_OK;
 }
