@@ -15,6 +15,7 @@
 #define FLATFS_PERMISSION_R   4
 
 #define FLATFS_BLOCK_SUPERBLOCK 0
+#define FLATFS_SECTOR_SUPERBLOCK 0  /* this needs to be constent even on variable block size */
 
 /*
  * Sector layout on disk
@@ -305,17 +306,19 @@ flatfs_err_t flatfs_check(flatfs_t *fs);
 /* ─── utils ──────────────────────────────────────────────────────── */
 
 /*
- * flatfs_write_block
- * Write FlatFS block into drive memory.
- *  block_idx - block index in flatfs relative terms
- *  data      - the data to be writen (must be a block size) */
-flatfs_err_t flatfs_write_block(flatfs_t *fs, uint32_t block_idx, const uint8_t *data);
+ * flatfs_write_blocks
+ * Write FlatFS blocks into drive memory.
+ *  start_block_idx - first block index in flatfs relative terms
+ *  data            - the data to be writen (must be a block_size * block_count) */
+flatfs_err_t flatfs_write_blocks(flatfs_t *fs, uint32_t start_block_idx,
+                                  uint32_t block_count, const uint8_t *data);
 
 /*
  * flatfs_read_block
- * Read FlatFS block into drive memory.
- *  block_idx - block index in flatfs relative terms
- *  buffer    - buffer for read data (must be a block size) */
-flatfs_err_t flatfs_read_block(flatfs_t *fs, uint32_t block_idx, uint8_t *buffer);
+ * Read FlatFS blocks from drive memory.
+ *  start_block_idx - first block index in flatfs relative terms
+ *  data            - the data to be writen (must be a block_size * block_count) */
+flatfs_err_t flatfs_read_blocks(flatfs_t *fs, uint32_t start_block_idx,
+                                 uint32_t block_count, uint8_t *buffer);
 
 #endif /* FLATFS_H */
