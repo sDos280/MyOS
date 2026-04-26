@@ -127,7 +127,7 @@ typedef struct {
     ata_drive_t        *drive;        /* the ATA drive backing this FS        */
     flatfs_superblock_t sb;           /* cached superblock (sector 0)         */
     uint8_t *inode_bitmap;            /* 1 bit per inode    */
-    uint8_t *block_bitmap;            /* 1 bit per block    */
+    uint8_t *block_bitmap;            /* 1 bit per (data) block */
 } flatfs_t;
 
 /* ─── lifecycle ────────────────────────────────────────────────────────────── */
@@ -198,16 +198,17 @@ flatfs_err_t flatfs_delete(flatfs_t *fs, const char *name);
 /*
  * flatfs_write
  * Write `size` bytes from `buf` into the file at byte offset `offset`.
- * Allocates new data sectors (each ATA_SECTOR_SIZE bytes) as needed.
- * Growing past FLATFS_DIRECT_BLOCKS * ATA_SECTOR_SIZE returns FLATFS_ERR_NO_SPACE.
- *
- * Each sector is written with a single ata_write28_request call.
+ * Allocates new data sectors (each block_size bytes) as needed.
+ * Growing past FLATFS_DIRECT_BLOCKS * block_size returns FLATFS_ERR_NO_SPACE.
+ * 
+ *  bytes_written   - the amount of bytes that were writen to the disk before (if happened) error.
  */
 flatfs_err_t flatfs_write(flatfs_t *fs,
                           const char *name,
                           uint32_t offset,
                           const uint8_t *buf,
-                          uint32_t size);
+                          uint32_t size,
+                          uint32_t *bytes_written);
 
 /*
  * flatfs_read

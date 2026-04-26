@@ -107,11 +107,17 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
                           const char *name,
                           uint32_t offset,
                           const uint8_t *buf,
-                          uint32_t size) {
-    if (!fs || !name || !buf)
+                          uint32_t size,
+                          uint32_t *bytes_written) {
+    if (!fs || !name || !buf || !bytes_written)
         return FLATFS_ERR_INVALID;
+    
+    if (size == 0) {
+        if (bytes_written) *bytes_written = 0;
+        return FLATFS_OK;
+    }
 
-    if (offset + size > FLATFS_DIRECT_BLOCKS * FLATFS_BLOCK_SIZE)
+    if (offset + size > fs->drive->size_in_sectors * ATA_SECTOR_SIZE)
         return FLATFS_ERR_NO_SPACE;
 
     uint32_t inode_idx;
@@ -125,7 +131,13 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
         return err;
 
     /* allocate any blocks that are needed but not yet assigned */
-    uint32_t last_block_needed = (offset + size - 1) / FLATFS_BLOCK_SIZE;
+    uint32_t block_size       = FLATFS_BLOCK_SIZE(&fs->sb);
+    uint32_t last_block_needed = (offset + size - 1) / block_size;
+    
+    /* check we don't exceed direct block limit */
+    if (last_block_needed >= FLATFS_DIRECT_BLOCKS)
+        return FLATFS_ERR_NO_SPACE;
+
     while (inode.block_count <= last_block_needed) {
         uint32_t free_block_idx;
         err = get_free_data_block(fs, &free_block_idx);
@@ -135,38 +147,46 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
         inode.blocks[inode.block_count] = free_block_idx;
         inode.block_count++;
     }
-
-    /* read-modify-write each sector touched by this write */
-    uint32_t bytes_written = 0;
-    while (bytes_written < size) {
-        uint32_t block_idx    = (offset + bytes_written) / FLATFS_BLOCK_SIZE;
-        uint32_t local_offset = (offset + bytes_written) % FLATFS_BLOCK_SIZE;
-        uint32_t local_size   = MIN(FLATFS_BLOCK_SIZE - local_offset, size - bytes_written);
-
-        uint8_t block_buf[FLATFS_BLOCK_SIZE];
-
-        if (ata_read28_request(fs->drive, FLATFS_SECTOR_DATA_START + inode.blocks[block_idx],
-                               1, block_buf) != 0)
-            return FLATFS_ERR_IO;
-
-        memcpy(block_buf + local_offset, buf + bytes_written, local_size);
-
-        if (ata_write28_request(fs->drive, FLATFS_SECTOR_DATA_START + inode.blocks[block_idx],
-                                1, block_buf) != 0)
-            return FLATFS_ERR_IO;
-
-        bytes_written += local_size;
+    uint8_t *block_buf = kalloc(block_size);
+    if (!block_buf) {
+        kfree(block_buf);
+        return FLATFS_ERR_NO_MEM;
     }
+    
+    /* read-modify-write each sector touched by this write */
+    uint32_t local_bytes_written = 0;
+    while (local_bytes_written < size) {
+        uint32_t block_idx    = (offset + local_bytes_written) / block_size;
+        uint32_t local_offset = (offset + local_bytes_written) % block_size;
+        uint32_t local_size   = MIN(block_size - local_offset, size - local_bytes_written);
+
+        
+
+        uint32_t phys_block = fs->sb.data_start_block + inode.blocks[block_idx];
+        
+        if ((err = flatfs_read_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK)
+            return err;
+
+        memcpy(block_buf + local_offset, buf + local_bytes_written, local_size);
+        
+        if ((err = flatfs_write_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK)
+            return err;
+
+        local_bytes_written += local_size;
+        if (bytes_written)
+            *bytes_written = local_bytes_written;
+    }
+
+    kfree(block_buf);
 
     /* update inode size if write extended the file */
     if (offset + size > inode.size)
         inode.size = offset + size;
 
     /* write inode back to disk */
-    if (ata_write28_request(fs->drive, FLATFS_SECTOR_INODE_TABLE + inode_idx,
-                            1, (uint8_t *)&inode) != 0)
-        return FLATFS_ERR_IO;
-
+    if ((err = write_inode(fs, inode_idx, &inode)) != FLATFS_OK)
+        return err;
+    
     return FLATFS_OK;
 }
 
@@ -288,7 +308,7 @@ flatfs_err_t flatfs_rename(flatfs_t *fs,
  * ========================================================================= */
 
 /*
- * Get a free data block (if there is one). caller needs to update free blocks
+ * Get a free data block (if there is one).
  */
 static flatfs_err_t get_free_data_block(flatfs_t *fs, uint32_t *block_index) {
     if (!fs || !block_index)
