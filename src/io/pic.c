@@ -1,4 +1,5 @@
 #include "io/pic.h"
+#include "kernel/print.h"
 
 void pic_sendEOI(uint8_t irq)
 {

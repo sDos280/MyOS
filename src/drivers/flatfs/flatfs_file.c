@@ -109,7 +109,7 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
                           const uint8_t *buf,
                           uint32_t size,
                           uint32_t *bytes_written) {
-    if (!fs || !name || !buf || !bytes_written)
+    if (!fs || !name || !buf)
         return FLATFS_ERR_INVALID;
     
     if (size == 0) {
@@ -131,7 +131,7 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
         return err;
 
     /* allocate any blocks that are needed but not yet assigned */
-    uint32_t block_size       = FLATFS_BLOCK_SIZE(&fs->sb);
+    uint32_t block_size        = FLATFS_BLOCK_SIZE(&fs->sb);
     uint32_t last_block_needed = (offset + size - 1) / block_size;
     
     /* check we don't exceed direct block limit */
@@ -147,9 +147,9 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
         inode.blocks[inode.block_count] = free_block_idx;
         inode.block_count++;
     }
+
     uint8_t *block_buf = kalloc(block_size);
     if (!block_buf) {
-        kfree(block_buf);
         return FLATFS_ERR_NO_MEM;
     }
     
@@ -159,9 +159,6 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
         uint32_t block_idx    = (offset + local_bytes_written) / block_size;
         uint32_t local_offset = (offset + local_bytes_written) % block_size;
         uint32_t local_size   = MIN(block_size - local_offset, size - local_bytes_written);
-
-        
-
         uint32_t phys_block = fs->sb.data_start_block + inode.blocks[block_idx];
         
         if ((err = flatfs_read_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK)
@@ -196,7 +193,7 @@ flatfs_err_t flatfs_read(flatfs_t *fs,
                          uint8_t *buf,
                          uint32_t size,
                          uint32_t *bytes_read) {
-    if (!fs || !name || !buf || !bytes_read)
+    if (!fs || !name || !buf)
         return FLATFS_ERR_INVALID;
 
     uint32_t inode_idx;
@@ -210,34 +207,45 @@ flatfs_err_t flatfs_read(flatfs_t *fs,
         return err;
 
     if (offset >= inode.size) {
-        *bytes_read = 0;
+        if (bytes_read)
+            *bytes_read = 0;
         return FLATFS_OK;
     }
 
     size = MIN(size, inode.size - offset);
+    uint32_t block_size        = FLATFS_BLOCK_SIZE(&fs->sb);
+    
+    uint8_t *block_buf = kalloc(block_size);
+    if (!block_buf) {
+        return FLATFS_ERR_NO_MEM;
+    }
 
     uint32_t br = 0;
     while (br < size) {
-        uint32_t block_idx    = (offset + br) / FLATFS_BLOCK_SIZE;
-        uint32_t local_offset = (offset + br) % FLATFS_BLOCK_SIZE;
-        uint32_t local_size   = MIN(FLATFS_BLOCK_SIZE - local_offset, size - br);
+        uint32_t block_idx    = (offset + br) / block_size;
+        uint32_t local_offset = (offset + br) % block_size;
+        uint32_t local_size   = MIN(block_size - local_offset, size - br);
+        uint32_t phys_block = fs->sb.data_start_block + inode.blocks[block_idx];
 
-        uint8_t block_buf[FLATFS_BLOCK_SIZE];
-
-        if (ata_read28_request(fs->drive, FLATFS_SECTOR_DATA_START + inode.blocks[block_idx],
-                               1, block_buf) != 0)
-            return FLATFS_ERR_IO;
+        if ((err = flatfs_read_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK) {
+            kfree(block_buf);
+            return err;
+        }
 
         memcpy(buf + br, block_buf + local_offset, local_size);
 
         br += local_size;
     }
 
-    *bytes_read = br;
+    kfree(block_buf);
+
+    if (bytes_read)
+        *bytes_read = br;
+    
     return FLATFS_OK;
 }
 
-flatfs_err_t flatfs_truncate(flatfs_t *fs,
+/*flatfs_err_t flatfs_truncate(flatfs_t *fs,
                              const char *name,
                              uint32_t new_size) {
     if (!fs || !name)
@@ -263,45 +271,45 @@ flatfs_err_t flatfs_truncate(flatfs_t *fs,
     inode.size = new_size;
 
     return FLATFS_OK;
-}
+}*/
 
-flatfs_err_t flatfs_rename(flatfs_t *fs,
-                           const char *old_name,
-                           const char *new_name) {
-    if (!fs || !old_name || !new_name)
-        return FLATFS_ERR_INVALID;
+// flatfs_err_t flatfs_rename(flatfs_t *fs,
+//                            const char *old_name,
+//                            const char *new_name) {
+//     if (!fs || !old_name || !new_name)
+//         return FLATFS_ERR_INVALID;
 
-    /* check if there is a file with the new_name */
-    uint32_t inox;
-    flatfs_err_t err = flatfs_find(fs, new_name, &inox);
-    if (err == FLATFS_OK)
-        return FLATFS_ERR_EXISTS;
-    if (err != FLATFS_ERR_NOT_FOUND)
-        return err;
+//     /* check if there is a file with the new_name */
+//     uint32_t inox;
+//     flatfs_err_t err = flatfs_find(fs, new_name, &inox);
+//     if (err == FLATFS_OK)
+//         return FLATFS_ERR_EXISTS;
+//     if (err != FLATFS_ERR_NOT_FOUND)
+//         return err;
 
-    /* find the old name file */
-    flatfs_inode_t inode;
-    err = flatfs_find(fs, old_name, &inox);
-    if (err != FLATFS_OK)
-        return err;
+//     /* find the old name file */
+//     flatfs_inode_t inode;
+//     err = flatfs_find(fs, old_name, &inox);
+//     if (err != FLATFS_OK)
+//         return err;
 
-    if (ata_read28_request(fs->drive,
-                           FLATFS_SECTOR_INODE_TABLE + inox,
-                           1,
-                           (uint8_t *)&inode) != 0)
-        return FLATFS_ERR_IO;
+//     if (ata_read28_request(fs->drive,
+//                            FLATFS_SECTOR_INODE_TABLE + inox,
+//                            1,
+//                            (uint8_t *)&inode) != 0)
+//         return FLATFS_ERR_IO;
 
-    memset(inode.name, 0, FLATFS_NAME_MAX);
-    strncpy(inode.name, new_name, FLATFS_NAME_MAX);
+//     memset(inode.name, 0, FLATFS_NAME_MAX);
+//     strncpy(inode.name, new_name, FLATFS_NAME_MAX);
 
-    if (ata_write28_request(fs->drive,
-                            FLATFS_SECTOR_INODE_TABLE + inox,
-                            1,
-                            (uint8_t *)&inode) != 0)
-        return FLATFS_ERR_IO;
+//     if (ata_write28_request(fs->drive,
+//                             FLATFS_SECTOR_INODE_TABLE + inox,
+//                             1,
+//                             (uint8_t *)&inode) != 0)
+//         return FLATFS_ERR_IO;
 
-    return FLATFS_OK;
-}
+//     return FLATFS_OK;
+// }
 
 /* =========================================================================
  * INTERNAL HELPERS
@@ -343,7 +351,7 @@ static flatfs_err_t read_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t 
     uint32_t block_count = (first_block != last_block) ? 2 : 1;
     uint32_t block_idx   = fs->sb.inode_table_start + first_block;
 
-    uint8_t *buf = (uint8_t *)kmalloc(FLATFS_BLOCK_SIZE(&fs->sb) * block_count);
+    uint8_t *buf = (uint8_t *)kalloc(FLATFS_BLOCK_SIZE(&fs->sb) * block_count);
     if (!buf)
         return FLATFS_ERR_NO_MEM;
 
@@ -376,7 +384,7 @@ static flatfs_err_t write_inode(flatfs_t *fs, uint32_t inode_idx, flatfs_inode_t
     uint32_t block_count = (first_block != last_block) ? 2 : 1;
     uint32_t block_idx   = fs->sb.inode_table_start + first_block;
 
-    uint8_t *buf = (uint8_t *)kmalloc(FLATFS_BLOCK_SIZE(&fs->sb) * block_count);
+    uint8_t *buf = (uint8_t *)kalloc(FLATFS_BLOCK_SIZE(&fs->sb) * block_count);
     if (!buf)
         return FLATFS_ERR_NO_MEM;
 

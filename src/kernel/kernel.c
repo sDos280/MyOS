@@ -82,7 +82,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     drive_prime_master.size_in_sectors = identify_buf.UserAddressableSectors;
 
     /* setup flat filesystem on the primery master drive */
-    flatfs_err_t err = flatfs_format(&drive_prime_master, FLATFS_MAX_BLOCKS, FLATFS_MAX_FILES);
+    flatfs_err_t err = flatfs_format(&drive_prime_master, 1000, 2);
     if (err != FLATFS_OK) printf("Got %d error while formating\n", err);
     printf("Format primery master drive to flat filesystem format\n");
     
@@ -101,7 +101,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     "A tiny verse on disk will stay,\n"
     "Until the kernel reads one day.\n";
     uint32_t bytes_read;
-    err = flatfs_write(&fs, "FirstFile", 0, poem, sizeof(poem));
+    err = flatfs_write(&fs, "FirstFile", 0, poem, sizeof(poem), NULL);
     if (err != FLATFS_OK) PANIC("FLATFS got error while writing file");
 
     /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);

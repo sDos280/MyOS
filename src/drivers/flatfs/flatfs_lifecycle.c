@@ -157,14 +157,14 @@ flatfs_err_t flatfs_unmount(flatfs_t *fs) {
 
     flatfs_err_t err;
 
-    /* flush superblock */
-    uint8_t *temp_block = (uint8_t *)kmalloc(FLATFS_BLOCK_SIZE(&fs->sb));
+    uint8_t *temp_block = (uint8_t *)kalloc(FLATFS_BLOCK_SIZE(&fs->sb));
     if (!temp_block)
         return FLATFS_ERR_NO_MEM;
 
+    /* flush superblock */
     memset(temp_block, 0, FLATFS_BLOCK_SIZE(&fs->sb));
     memcpy(temp_block, &fs->sb, sizeof(flatfs_superblock_t));
-    err = flatfs_write_block(fs, FLATFS_BLOCK_SUPERBLOCK, temp_block);
+    err = flatfs_write_blocks(fs, FLATFS_BLOCK_SUPERBLOCK, 1, temp_block);
     kfree(temp_block);
     if (err != FLATFS_OK)
         return err;

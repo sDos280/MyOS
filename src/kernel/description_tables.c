@@ -118,6 +118,8 @@ void isr_stub_handler(cpu_status_t regs){
     if (interrupt_handlers[regs.int_no]) {
         isr_handler handler = interrupt_handlers[regs.int_no];
         err = handler(&regs);
+        // if (regs.int_no != 32)
+        //     printf("isr_tick:%d, int_no:%d\n", isr_tick, regs.int_no);
     } else {
         printf("No handler registered for this interrupt.\n");
         printf("Received interrupt: %x   Err code: %x   Tick: %d\n", regs.int_no, regs.err_code, isr_tick);
