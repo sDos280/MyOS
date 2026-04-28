@@ -432,12 +432,22 @@ typedef struct __attribute__((packed)) identify_device_data_struct {
 /**
  * Waits until BSY (busy) flag is cleared for the given drive.
  */
-void ata_wait_bsy(ata_drive_t *drive);
+void ata_wait_bsy_clear(ata_drive_t *drive);
 
 /**
  * Waits until DRQ (data ready) flag is set for the given drive.
  */
-void ata_wait_drq(ata_drive_t *drive);
+void ata_wait_drq_ready(ata_drive_t *drive);
+
+/**
+ * Check if the err flag is set (1 error, 0 no error).
+ */
+uint8_t ata_check_err(ata_drive_t *drive);
+
+/**
+ * Get the error from the error register of the drive.
+ */
+uint8_t ata_get_err(ata_drive_t *drive);
 
 /**
  * Registers ATA IRQ handlers and clears driver state.

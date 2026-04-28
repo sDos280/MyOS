@@ -81,8 +81,12 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     print_identify_device_data(&identify_buf);
     drive_prime_master.size_in_sectors = identify_buf.UserAddressableSectors;
 
+    /* test ata driver */
+    void ata_test_write_read_3_sectors(ata_drive_t *drive, uint32_t start_sector);
+    ata_test_write_read_3_sectors(&drive_prime_master, 50);
+
     /* setup flat filesystem on the primery master drive */
-    flatfs_err_t err = flatfs_format(&drive_prime_master, 1000, 2);
+    /*flatfs_err_t err = flatfs_format(&drive_prime_master, 1000, 2);
     if (err != FLATFS_OK) printf("Got %d error while formating\n", err);
     printf("Format primery master drive to flat filesystem format\n");
     
@@ -102,7 +106,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     "Until the kernel reads one day.\n";
     uint32_t bytes_read;
     err = flatfs_write(&fs, "FirstFile", 0, poem, sizeof(poem), NULL);
-    if (err != FLATFS_OK) PANIC("FLATFS got error while writing file");
+    printf("%d", err);
+    if (err != FLATFS_OK) PANIC("FLATFS got error while writing file");*/
 
     /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);

@@ -114,10 +114,14 @@ flatfs_err_t flatfs_mount(flatfs_t *fs, ata_drive_t *drive) {
     if (!drive->exists)
         return FLATFS_ERR_NO_DRIVE;
 
-    flatfs_superblock_t sb;
-    uint8_t ata_err = ata_read28_request(drive, FLATFS_SECTOR_SUPERBLOCK, 1, (uint8_t *)&sb);
-    if (ata_err == 1)
+    uint8_t sector_buf[ATA_SECTOR_SIZE];
+    memset(sector_buf, 0, sizeof(sector_buf));
+    uint8_t ata_err = ata_read28_request(drive, FLATFS_SECTOR_SUPERBLOCK, 1, (uint8_t *)&sector_buf);
+    if (ata_err != 0)
         return FLATFS_ERR_IO;
+    
+    flatfs_superblock_t sb;
+    memcpy(&sb, sector_buf, sizeof(flatfs_superblock_t));
 
     if (sb.magic != FLATFS_MAGIC)
         return FLATFS_ERR_BAD_MAGIC;

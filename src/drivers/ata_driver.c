@@ -1,433 +1,243 @@
-#include "kernel/print.h"
-#include "mm/kheap.h"
 #include "drivers/ata_driver.h"
+#include "kernel/print.h"
 #include "io/port.h"
-#include "io/pic.h"
-#include "utils.h"
-#include "errno.h"
 
-/* =========================================================
-                        MACROS
-   ========================================================= */
+static ata_drive_t * current_working_drive;
 
-/**
- * Macro: ATA_SELECT_DELAY
- * -------------------------------------
- * Performs 4 dummy reads from the ATA status port to allow
- * the drive time to switch between Master/Slave selection.
- * Required by ATA hardware timing rules.
+/*
+ * Static helper functions
  */
-#define ATA_SELECT_DELAY()                    \
-    do {                                      \
-        inb(ATA_PRIMARY_IO + ATA_REG_STATUS);  \
-        inb(ATA_PRIMARY_IO + ATA_REG_STATUS);  \
-        inb(ATA_PRIMARY_IO + ATA_REG_STATUS);  \
-        inb(ATA_PRIMARY_IO + ATA_REG_STATUS);  \
-    } while (0)
-
-/**
- * Macro: WAIT_FOR_ATA_RESPONSE_TO_BE_DONE
- * -------------------------------------
- * Halts the CPU with `hlt` until the IRQ handler signals
- * that the current ATA request has finished processing.
- */
-#define WAIT_FOR_ATA_RESPONSE_TO_BE_DONE()     \
-    while (!ata_responce.done) {               \
-        asm volatile("hlt");                   \
-    }
-
-/* =========================================================
-                    REQUEST / RESPONSE STRUCTS
-   ========================================================= */
-
-/**
- * Struct: ata_request_struct
- * -------------------------------------
- * Holds a pending ATA command request.
- * Supports 28-bit LBA Read and Write operations.
- */
-typedef struct ata_request_struct {
-    volatile device_id_t device_id; // Target ATA device (primary/secondary, master/slave)
-    volatile uint8_t pending;       // 1 = request active, 0 = idle
-    volatile uint8_t request_type;  // Command type (identify, read, write)
-
-    union {
-        volatile struct {
-            uint32_t sector_address; // LBA28 address to read from
-            uint32_t sector_count;   // Number of sectors to read
-        } read;
-
-        volatile struct {
-            uint32_t sector_address; // LBA28 address to write to
-            size_t   sector_count;   // Number of sectors to write
-            void    *data;           // Pointer to data (must be sector_count * 512 bytes)
-        } write;
-    } specific;
-} ata_request_t;
-
-
-/**
- * Struct: ata_responce_struct
- * -------------------------------------
- * Holds the ATA device response after IRQ handling.
- */
-typedef struct ata_responce_struct {
-    volatile device_id_t device_id; // Source device of the last handled response
-    volatile uint8_t done:4;        // 1 = request handled and finished
-    volatile uint8_t error:4;       // 1 = request resulted in error
-
-    union {
-        volatile struct {
-            uint32_t sector_index;  // Which sector was just read in this IRQ cycle
-            uint32_t sectors_read;  // The amount of sectors already read
-            uint8_t *buffer;        // Memory destination for disk → RAM data
-        } read_resp;
-
-        volatile struct {
-            uint8_t sector_write_done; // Set by IRQ after sector was written
-        } write_resp;
-    } specific;
-} ata_responce_t;
-
-/* Global static functions */
+static void delay_400ns(ata_drive_t *drive);
+static uint8_t read_status_reg(ata_drive_t *drive);
+static uint8_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer);
 static uint32_t ata_response_handler(cpu_status_t *regs);
 
-/* Global driver request/response state */
-ata_request_t  ata_request;
-ata_responce_t ata_responce;
-
-/* =========================================================
-                        WAIT HELPERS
-   ========================================================= */
-
-void ata_wait_bsy(ata_drive_t *drv) {
-    while (inb(drv->device_id.ctrl_base) & ATA_SR_BSY)
-        asm volatile("hlt");
+static void delay_400ns(ata_drive_t *drive) {
+    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
+    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
+    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
+    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
 }
 
-void ata_wait_drq(ata_drive_t *drv) {
-    while (!(inb(drv->device_id.ctrl_base) & ATA_SR_DRQ))
-        asm volatile("hlt");
+static uint8_t read_status_reg(ata_drive_t *drive) {
+    uint8_t status;
+
+    status = inb(drive->device_id.io_base + ATA_REG_STATUS);
+
+    return status;
 }
 
-/* =========================================================
-                RESPONSE HANDLING FUNCTIONS
-   ========================================================= */
+static uint8_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer) {
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
+    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
+    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 1);
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
-/**
- * Function: ata_handle_identify_responce
- * -------------------------------------
- * Validates the IDENTIFY command response and reads the
- * 512-byte identify block into memory (256 words of 2 bytes).
- *
- * Returns: 1 on error, 0 on success
+    /* send the command */
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+
+    /* check if disk is ready */
+    ata_wait_bsy_clear(drive);
+    /* "You may also need to ignore ERR and DF the first four times that you read the Status, if you are polling" */
+    delay_400ns(drive);
+    ata_wait_drq_ready(drive);
+
+    /* check if we got an error */
+    if (ata_check_err(drive))
+        return ata_get_err(drive);
+
+    for(int i = 0; i < ATA_SECTOR_SIZE/2; i++) {
+		uint16_t data = inw(drive->device_id.io_base + ATA_REG_DATA);
+		((uint16_t *)buffer)[i] = data;
+	}
+
+    /* Note for polling PIO drivers: After transferring the last uint16_t of a PIO data block to the data IO port, 
+     * give the drive a 400ns delay to reset its DRQ bit (and possibly set BSY again, 
+     * while emptying/filling its buffer to/from the drive).
+     */
+    delay_400ns(drive);
+
+    return 0;
+}
+
+static uint8_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer) {
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
+    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
+    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 1);
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
+
+    /* send the command */
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
+
+    /* check if disk is ready */
+    ata_wait_bsy_clear(drive);
+    /* "You may also need to ignore ERR and DF the first four times that you read the Status, if you are polling" */
+    delay_400ns(drive);
+    ata_wait_drq_ready(drive);
+
+    /* check if we got an error */
+    uint8_t err = ata_get_err(drive);
+    if (err != 0) return ata_get_err(drive);
+
+    for(int i = 0; i < ATA_SECTOR_SIZE/2; i++) {
+        outw(drive->device_id.io_base + ATA_REG_DATA, ((uint16_t *)buffer)[i]);
+        asm volatile("jmp .+2"); // short mandatory delay
+	}
+
+    /* may or may not be needed, not so sure */
+    delay_400ns(drive);
+
+    return 0;
+}
+
+static uint32_t ata_response_handler(cpu_status_t *regs) {
+    return 0;
+}
+
+/*
+ * Helper functions
  */
-static uint8_t ata_handle_identify_responce() {
-    uint8_t status = inb(ata_responce.device_id.io_base + ATA_REG_STATUS);
-    uint8_t LBAmid = inb(ata_responce.device_id.io_base + ATA_REG_LBA_MID);
-    uint8_t LBAhi  = inb(ata_responce.device_id.io_base + ATA_REG_LBA_HIGH);
-    uint8_t err    = 0;
+void ata_wait_bsy_clear(ata_drive_t *drive) {
+    uint8_t status;
 
-    // Drive not detected
-    if (status == 0) {
-        err = 1;
-        printf("ATA: No device detected on the port\n");
-        goto done;
-    }
-
-    // Not an ATA device
-    if (LBAmid != 0 || LBAhi != 0) {
-        err = 1;
-        printf("ATA: Device is not ATA compatible\n");
-        goto done;
-    }
-
-    // Wait until DRQ (ready for data) or ERR (failure)
     do {
-        status = inb(ata_responce.device_id.io_base + ATA_REG_STATUS);
-    } while (!(status & ATA_SR_DRQ) && !(status & ATA_SR_ERR));
+        status = read_status_reg(drive);
+    } while (status & ATA_SR_BSY);
+}
 
-    if (status & ATA_SR_ERR) {
-        err = 1;
-        printf("ATA: IDENTIFY failed, error flag raised\n");
-        goto done;
-    }
+void ata_wait_drq_ready(ata_drive_t *drive) {
+    uint8_t status;
 
-    // Read 512-byte IDENTIFY data (256 * 2-byte words)
-    for (uint32_t i = 0; i < 256; i++)
-        ((uint16_t *)ata_responce.specific.read_resp.buffer)[i] =
-             inw(ata_responce.device_id.io_base + ATA_REG_DATA);
+    do {
+        status = read_status_reg(drive);
 
-done:
-    ata_responce.error = err;
+        if (status & ATA_SR_ERR)
+            return;
+
+    } while (!(status & ATA_SR_DRQ));
+}
+
+uint8_t ata_check_err(ata_drive_t *drive) {
+    uint8_t status;
+
+    status = read_status_reg(drive);
+
+    return status & ATA_SR_ERR;
+}
+
+uint8_t ata_get_err(ata_drive_t *drive) {
+    uint8_t err;
+
+    err = inb(drive->device_id.io_base + ATA_REG_ERROR);
+    
     return err;
 }
 
-/**
- * Function: ata_handle_read_single_sector_responce
- * -------------------------------------
- * Reads one 512-byte sector chunk during an IRQ.
- * Stores it into the provided RAM buffer sequentially.
+/* 
+ * Driver functions
  */
-static uint8_t ata_handle_read_single_sector_responce() {
-    uint32_t offset_words = (ATA_SECTOR_SIZE / 2) * ata_responce.specific.read_resp.sectors_read;
 
-    // Read 512 bytes = 256 16-bit values
-    for (uint32_t i = 0; i < (ATA_SECTOR_SIZE / 2); i++) {
-        uint16_t t = inw(ata_responce.device_id.io_base + ATA_REG_DATA);
-        ((uint16_t*)ata_responce.specific.read_resp.buffer)[offset_words + i] = t;
-    }
-
-    ata_responce.specific.read_resp.sector_index++;
-    return 0;
-}
-
-/**
- * Function: ata_handle_write_single_sector_responce
- * -------------------------------------
- * Marks that a sector write operation completed.
- */
-static uint8_t ata_handle_write_single_sector_responce() {
-    ata_responce.specific.write_resp.sector_write_done = 1;
-    return 0;
-}
-
-/* =========================================================
-                        DRIVER INIT
-   ========================================================= */
-
-void ata_driver_init() {
-    memset((void*)&ata_request, 0, sizeof(ata_request_t));
-    memset((void*)&ata_responce, 0, sizeof(ata_responce_t));
+ void ata_driver_init() {
+    current_working_drive = NULL;
 
     register_interrupt_handler(46, ata_response_handler);
     register_interrupt_handler(47, ata_response_handler);
-}
-
-/* =========================================================
-                 COMMAND SENDING FUNCTIONS
-   ========================================================= */
-
-uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *buffer) {
-    ata_request.device_id  = drive->device_id;
-    ata_request.pending    = 0;
-    ata_request.request_type = ATA_CMD_IDENTIFY;
-
-    ata_responce.device_id   = drive->device_id;
-    ata_responce.done        = 0;
-    ata_responce.error       = 0;
-    ata_responce.specific.read_resp.sector_index = 0;
-    ata_responce.specific.read_resp.sectors_read = 0;
-    ata_responce.specific.read_resp.buffer  = (uint8_t*)buffer;
-
-    // Select device
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
-    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 0);
-    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  0);
-    outb(drive->device_id.io_base + ATA_REG_LBA_MID,  0);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH, 0);
-    ATA_SELECT_DELAY();
-
-    // Send IDENTIFY
-    ata_request.pending = 1;
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-    
-
-    WAIT_FOR_ATA_RESPONSE_TO_BE_DONE();
-    return ata_responce.error;
-}
+ }
 
 uint8_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
-    ata_request.device_id  = drive->device_id;
-    ata_request.pending    = 0;
-    ata_request.request_type = ATA_CMD_READ_PIO;
-    ata_request.specific.read.sector_address = sector;
-    ata_request.specific.read.sector_count   = count;
+    uint8_t err;
 
-    ata_responce.device_id   = drive->device_id;
-    ata_responce.done        = 0;
-    ata_responce.error       = 0;
-    ata_responce.specific.read_resp.sector_index = sector;
-    ata_responce.specific.read_resp.sectors_read = 0;
-    ata_responce.specific.read_resp.buffer = buffer;
+    current_working_drive = drive;
 
+    for (uint32_t i = 0; i < count; i++) {
+        err = ata_read28_one_sector_request(drive, sector + i, buffer);
+        if (err != 0) return err;
 
-    // Select device + LBA high bits
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
-    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
-    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, count);
-    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
+        buffer += ATA_SECTOR_SIZE;
+    }
 
-    // Send READ command
-    ata_request.pending = 1;
-    ATA_SELECT_DELAY();
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
-    
-
-    WAIT_FOR_ATA_RESPONSE_TO_BE_DONE();
-    return ata_responce.error;
+    return 0;
 }
 
 uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
-    ata_request.device_id  = drive->device_id;
-    ata_request.pending    = 0;
-    ata_request.request_type = ATA_CMD_WRITE_PIO;
-    ata_request.specific.write.sector_address = sector;
-    ata_request.specific.write.sector_count   = count;
-    ata_request.specific.write.data           = buffer;
+    uint8_t err;
 
-    ata_responce.device_id  = drive->device_id;
-    ata_responce.done       = 0;
-    ata_responce.error      = 0;
-    ata_responce.specific.write_resp.sector_write_done = 0;
+    current_working_drive = drive;
 
-    // Select device + LBA bits
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
-    outb(drive->device_id.io_base + 0x01, count); // not really sure why
-    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, count);
-    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
+    for (uint32_t i = 0; i < count; i++) {
+        err = ata_write28_one_sector_request(drive, sector + i, buffer);
+        if (err != 0) return err;
 
-    // Send WRITE command
-    ata_request.pending = 1;
-    ATA_SELECT_DELAY();
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
-    
-
-    // Write sector data (256 words per sector)
-    for (uint32_t s = 0; s < count; s++) {
-        ata_responce.specific.write_resp.sector_write_done = 0;
-        uint16_t *src = (uint16_t*)buffer + (ATA_SECTOR_SIZE / 2)*s;
-
-        for (uint32_t i = 0; i < (ATA_SECTOR_SIZE / 2); i++) {
-            outw(drive->device_id.io_base + ATA_REG_DATA, src[i]);
-            asm volatile("jmp .+2"); // short mandatory delay
-        }
-
-        // Wait for IRQ to mark sector done
-        while (!ata_responce.specific.write_resp.sector_write_done)
-             asm volatile("hlt");
+        buffer += ATA_SECTOR_SIZE;
     }
 
-    return ata_responce.error;
+    return ata_flush_cache(drive);
+}
+
+uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *buffer) {
+    current_working_drive = drive;
+
+    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
+    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  0);
+    outb(drive->device_id.io_base + ATA_REG_LBA_MID,  0);
+    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH, 0);
+
+    /* send the command */
+    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+
+    uint8_t status = read_status_reg(drive);
+    if (status == 0) {
+        printf("ATA: No device detected on the port\n");
+        return 1;
+    }
+
+    /* wait for drive to not be busy */
+    ata_wait_bsy_clear(drive);
+
+    uint8_t LBAmid = inb(drive->device_id.io_base + ATA_REG_LBA_MID);
+    uint8_t LBAhi  = inb(drive->device_id.io_base + ATA_REG_LBA_HIGH);
+
+    if (LBAmid != 0 || LBAhi != 0) {
+        printf("ATA: Device is not ATA compatible\n");
+        return 1;
+    }
+
+    ata_wait_drq_ready(drive);
+    if (ata_check_err(drive)) {
+        printf("ATA: IDENTIFY failed, error flag raised\n");
+        return ata_get_err(drive);
+    }
+
+    // Read IDENTIFY data
+    for (uint32_t i = 0; i < ATA_SECTOR_SIZE/2; i++)
+        ((uint16_t *)buffer)[i] = inw(drive->device_id.io_base + ATA_REG_DATA);
+
+    /* may or may not be needed, not so sure */
+    delay_400ns(drive);
 }
 
 uint8_t ata_flush_cache(ata_drive_t *drive) {
-    // Prepare driver state
-    ata_request.device_id = drive->device_id;
-    ata_request.pending = 0;
-    ata_request.request_type = ATA_CMD_FLUSH;
+    current_working_drive = drive;
 
-    ata_responce.device_id = drive->device_id;
-    ata_responce.done = 0;
-    ata_responce.error = 0;
-
-    // Select Master/Slave (LBA bits not used here)
     outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
-    ATA_SELECT_DELAY();
-
-    // Send flush command
-    ata_request.pending = 1;
     outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_FLUSH);
 
-    // FLUSH usually finishes without transferring a sector,
-    // so polling BSY until clear is enough:
-    ata_wait_bsy(drive);
+    /* "sending the 0xE7 command to the Command Register (then waiting for BSY to clear)" */
+    ata_wait_bsy_clear(drive);
 
-    return ata_responce.error;
+    /* check if we got an error */
+    uint8_t err = ata_check_err(drive);
+    if (err != 0) return ata_get_err(drive);
+
+    return 0;
 }
 
-/* =========================================================
-                   MAIN IRQ RESPONSE HANDLER
-   ========================================================= */
-
-/**
- * Function: ata_response_handler
- * -------------------------------------
- * Unified interrupt handler for all ATA requests.
- *   - Verifies a request is pending
- *   - Calls the correct sub-handler
- *   - Signals completion to waiting caller
- *   - Sends EOI to the :contentReference[oaicite:0]{index=0}
- */
-static uint32_t ata_response_handler(cpu_status_t *regs) {
-    uint8_t st;
-    uint32_t err = -ENO;
-
-    if (!ata_request.pending) {
-        printf("ATA: IRQ triggered but no request was pending!\n");
-        err = -EIRQ;
-        goto irq_end;
-    }
-
-    switch (ata_request.request_type) {
-        case ATA_CMD_IDENTIFY:
-            ata_request.pending = 0;
-            ata_responce.error = ata_handle_identify_responce();
-            ata_responce.done = 1;
-            break;
-
-        case ATA_CMD_READ_PIO:
-            ata_responce.error = ata_handle_read_single_sector_responce();
-            if (ata_responce.error) {
-                ata_request.pending = 0;
-                ata_responce.done = 1;
-                break;
-            }
-
-            ata_responce.specific.read_resp.sectors_read++;
-
-            if (ata_responce.specific.read_resp.sectors_read >=
-                ata_request.specific.read.sector_count) {
-                ata_request.pending = 0;
-                ata_responce.done = 1;
-            } else {
-                ata_request.pending = 1;
-                ata_responce.done = 0;
-            }
-            break;
-
-        case ATA_CMD_WRITE_PIO:
-            ata_request.pending = 0;
-            ata_handle_write_single_sector_responce();
-            ata_responce.done = 1;
-            break;
-
-        case ATA_CMD_FLUSH:
-            ata_request.pending = 0;
-            st = inb(ata_request.device_id.io_base + ATA_REG_STATUS);
-            if (st & ATA_SR_ERR)
-                ata_responce.error = 1;
-            ata_responce.done = 1;
-            break;
-
-        default:
-            ata_request.pending = 0;
-            printf("ATA Drive Error: Unknown command\n");
-            err = -EIRQ;
-            ata_responce.done = 1;
-            break;
-    }
-
-irq_end:
-    /* Review: we should probably not send the pic eoi here */
-    outb(PIC2_COMMAND, PIC_EOI);
-    outb(PIC1_COMMAND, PIC_EOI);
-    return err;
-}
-
-/* =========================================================
-                 IDENTIFY DATA PRINT FUNCTION
-   ========================================================= */
-
-/**
- * Function: print_identify_device_data
- * -------------------------------------
- * Prints decoded information from the 512-byte IDENTIFY block.
- * Helps debugging and confirming drive capabilities.
+/* 
+ * Print helper functions 
  */
 void print_identify_device_data(const identify_device_data_t *id) {
     printf("=== ATA IDENTIFY DEVICE DATA ===\n");
