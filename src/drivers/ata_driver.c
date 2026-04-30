@@ -73,11 +73,17 @@ static uint8_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t secto
     /* send the command */
     outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 
+    printf("before writing status check %d\n", sector);
     /* check if disk is ready */
     ata_wait_bsy_clear(drive);
     /* "You may also need to ignore ERR and DF the first four times that you read the Status, if you are polling" */
+    printf("after writing status check %d\n", sector);
+
+    printf("before data ready check %d\n", sector);
     delay_400ns(drive);
     ata_wait_drq_ready(drive);
+    printf("before after check %d\n", sector);
+   
 
     /* check if we got an error */
     uint8_t err = ata_get_err(drive);
@@ -95,6 +101,7 @@ static uint8_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t secto
 }
 
 static uint32_t ata_response_handler(cpu_status_t *regs) {
+    read_status_reg(current_working_drive);
     return 0;
 }
 
@@ -169,7 +176,9 @@ uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, 
     current_working_drive = drive;
 
     for (uint32_t i = 0; i < count; i++) {
+        printf("before writing sector %d\n", sector+i);
         err = ata_write28_one_sector_request(drive, sector + i, buffer);
+        printf("after writing sector %d\n", sector+i);
         if (err != 0) return err;
 
         buffer += ATA_SECTOR_SIZE;
