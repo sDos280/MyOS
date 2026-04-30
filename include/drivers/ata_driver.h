@@ -2,6 +2,7 @@
 #define ATA_DRIVER_H
 
 #include "mm/paging.h"
+#include "multitasking/lock.h"
 #include "types.h"
 
 // Primary bus
@@ -43,6 +44,10 @@
 #define ATA_CMD_FLUSH             0xE7
 #define ATA_CMD_FLUSH_EXT         0xEA
 
+// ATA master/salve
+#define ATA_MASTER_DRIVE 0
+#define ATA_SLAVE_DRIVE  1
+
 #define ATA_SECTOR_SIZE 512
 
 typedef struct device_id_struct {
@@ -52,10 +57,19 @@ typedef struct device_id_struct {
 } device_id_t;
 
 typedef struct ata_drive_struct {
-    device_id_t device_id;
+    device_id_t drive_id;      // the drive id
     uint32_t size_in_sectors;  // size of the drive in sectors (as defined above)
-    uint8_t exists;         // 1 if deriver exists else 0
+    uint8_t exists;            // 1 if deriver exists else 0
+    lock_t lock;
 } ata_drive_t;
+
+typedef enum {
+    ATA_OK             = 0,
+    ATA_ERR_INVALID    = -1,       // Invalid passed argument
+    ATA_ERR_NO_DEVICE  = -2,       // Drive not present (identify failed)
+    ATA_ERR_STATUS_ERR = -3,       // ERR bit set in status register
+    ATA_ERR_UNKNOWN    = -4,
+} ata_error_t;
 
 typedef struct __attribute__((packed)) identify_device_data_struct {
   struct {
@@ -461,12 +475,18 @@ uint8_t ata_get_err(ata_drive_t *drive);
 void ata_driver_init();
 
 /**
+ * Initialze drive struct's values
+ */
+ata_error_t ata_drive_init(ata_drive_t *drive,
+                   uint16_t io_base,
+                   uint16_t ctrl_base,
+                   uint8_t kind);
+
+/**
  * Reads sectors from an ATA drive using 28-bit LBA PIO.
  * @buffer must be at least sector_count * 512 bytes.
- *
- * Returns: 1 if error occurred, 0 on success.
  */
-uint8_t ata_read28_request(ata_drive_t *drive,
+ata_error_t ata_read28_request(ata_drive_t *drive,
                           uint32_t sector_address,
                           uint8_t sector_count,
                           uint8_t *buffer);
@@ -475,10 +495,8 @@ uint8_t ata_read28_request(ata_drive_t *drive,
  * Writes sectors to an ATA drive using 28-bit LBA PIO.
  * The command will generate IRQ after each sector is written.
  * @buffer must contain sector_count * 512 bytes.
- *
- * Returns: 1 on error, 0 on success.
  */
-uint8_t ata_write28_request(ata_drive_t *drive,
+ata_error_t ata_write28_request(ata_drive_t *drive,
                            uint32_t sector_address,
                            uint8_t sector_count,
                            uint8_t *buffer);
@@ -486,18 +504,14 @@ uint8_t ata_write28_request(ata_drive_t *drive,
 /**
  * Sends FLUSH CACHE to the drive, forcing it to commit
  * any pending writes to disk.
- *
- * Returns: 1 on error, 0 on success.
  */
-uint8_t ata_flush_cache(ata_drive_t *drive);
+ata_error_t ata_flush_cache(ata_drive_t *drive);
 
 /**
  * Sends IDENTIFY command to a drive and stores parsed result.
  * Identifies if a drive exists and reads its identify block.
- *
- * Returns: 1 if error or drive missing, 0 if identify succeeded.
  */
-uint8_t ata_send_identify_command(ata_drive_t *drive, 
+ata_error_t ata_send_identify_command(ata_drive_t *drive, 
                                   identify_device_data_t *buffer);
 
 /**

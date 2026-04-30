@@ -9,46 +9,50 @@ static ata_drive_t * current_working_drive;
  */
 static void delay_400ns(ata_drive_t *drive);
 static uint8_t read_status_reg(ata_drive_t *drive);
-static uint8_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer);
+static ata_error_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer);
+static ata_error_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer);
 static uint32_t ata_response_handler(cpu_status_t *regs);
 
 static void delay_400ns(ata_drive_t *drive) {
-    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
-    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
-    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
-    inb(drive->device_id.ctrl_base + ATA_REG_ALTSTATUS);
+    if (!drive) return;
+
+    inb(drive->drive_id.ctrl_base + ATA_REG_ALTSTATUS);
+    inb(drive->drive_id.ctrl_base + ATA_REG_ALTSTATUS);
+    inb(drive->drive_id.ctrl_base + ATA_REG_ALTSTATUS);
+    inb(drive->drive_id.ctrl_base + ATA_REG_ALTSTATUS);
 }
 
 static uint8_t read_status_reg(ata_drive_t *drive) {
-    uint8_t status;
+    if (!drive) return;
 
-    status = inb(drive->device_id.io_base + ATA_REG_STATUS);
-
-    return status;
+    return inb(drive->drive_id.io_base + ATA_REG_STATUS);
 }
 
-static uint8_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer) {
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
-    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
-    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 1);
-    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
+static ata_error_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer) {
+    if (!drive || !buffer) return ATA_ERR_INVALID;
+    
+    lock_acquire(&drive->lock);
+    outb(drive->drive_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->drive_id.master<<4) | ((sector>>24)&0x0F));
+    outb(drive->drive_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
+    outb(drive->drive_id.io_base + ATA_REG_SECCOUNT, 1);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
     /* check if disk is not busy and ready */
     ata_wait_not_busy(drive);
     ata_wait_drive_ready(drive);
 
     /* send the command */
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
+    outb(drive->drive_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
     ata_wait_not_busy(drive);
 
     /* check if we got an error */
     if (ata_check_err(drive))
-        return ata_get_err(drive);
+        return ATA_ERR_STATUS_ERR;
 
     for(int i = 0; i < ATA_SECTOR_SIZE/2; i++) {
-		uint16_t data = inw(drive->device_id.io_base + ATA_REG_DATA);
+		uint16_t data = inw(drive->drive_id.io_base + ATA_REG_DATA);
 		((uint16_t *)buffer)[i] = data;
 	}
 
@@ -58,38 +62,45 @@ static uint8_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector
      */
     delay_400ns(drive);
 
-    return 0;
+    lock_release(&drive->lock);
+
+    return ATA_OK;
 }
 
-static uint8_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer) {
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master<<4) | ((sector>>24)&0x0F));
-    outb(drive->device_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
-    outb(drive->device_id.io_base + ATA_REG_SECCOUNT, 1);
-    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
+static ata_error_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t sector, uint8_t *buffer) {
+    if (!drive || !buffer) return ATA_ERR_INVALID;
+    
+    lock_acquire(&drive->lock);
+    outb(drive->drive_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->drive_id.master<<4) | ((sector>>24)&0x0F));
+    outb(drive->drive_id.io_base + ATA_REG_FEATURES, 0);  // send Null (0) to the feature register (don't know why)
+    outb(drive->drive_id.io_base + ATA_REG_SECCOUNT, 1);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_LOW,  sector & 0xFF);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
     /* check if disk is not busy and ready */
     ata_wait_not_busy(drive);
     ata_wait_drive_ready(drive);
 
     /* send the command */
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
+    outb(drive->drive_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 
     /* check if disk is not busy and ready */
     ata_wait_not_busy(drive);
 
     /* check if we got an error */
-    if (ata_get_err(drive)) return ata_get_err(drive);
+    if (ata_get_err(drive)) return ATA_ERR_STATUS_ERR;
 
     for(int i = 0; i < ATA_SECTOR_SIZE/2; i++) {
-        outw(drive->device_id.io_base + ATA_REG_DATA, ((uint16_t *)buffer)[i]);
+        outw(drive->drive_id.io_base + ATA_REG_DATA, ((uint16_t *)buffer)[i]);
         asm volatile("jmp .+2"); // short mandatory delay
 	}
 
     ata_wait_not_busy(drive);
 
-    return 0;
+    lock_release(&drive->lock);
+
+    return ATA_OK;
 }
 
 static uint32_t ata_response_handler(cpu_status_t *regs) {
@@ -101,6 +112,7 @@ static uint32_t ata_response_handler(cpu_status_t *regs) {
  * Helper functions
  */
 void ata_wait_not_busy(ata_drive_t *drive) {
+    if (!drive) return;
     uint8_t status;
 
     do {
@@ -109,6 +121,7 @@ void ata_wait_not_busy(ata_drive_t *drive) {
 }
 
 void ata_wait_drq_ready(ata_drive_t *drive) {
+    if (!drive) return;
     uint8_t status;
 
     do {
@@ -121,11 +134,12 @@ void ata_wait_drq_ready(ata_drive_t *drive) {
 }
 
 void ata_wait_drive_ready(ata_drive_t *drive) {
+    if (!drive) return;
     uint8_t status;
 
     while (1)
     {
-        status = inb(drive->device_id.io_base + ATA_REG_STATUS);
+        status = inb(drive->drive_id.io_base + ATA_REG_STATUS);
 
         // Wait while BSY is set
         if (status & ATA_SR_BSY)
@@ -152,7 +166,7 @@ uint8_t ata_check_err(ata_drive_t *drive) {
 uint8_t ata_get_err(ata_drive_t *drive) {
     uint8_t err;
 
-    err = inb(drive->device_id.io_base + ATA_REG_ERROR);
+    err = inb(drive->drive_id.io_base + ATA_REG_ERROR);
     
     return err;
 }
@@ -166,31 +180,49 @@ uint8_t ata_get_err(ata_drive_t *drive) {
 
     register_interrupt_handler(46, ata_response_handler);
     register_interrupt_handler(47, ata_response_handler);
- }
+}
 
-uint8_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
+ata_error_t ata_drive_init(ata_drive_t *drive,
+                   uint16_t io_base,
+                   uint16_t ctrl_base,
+                   uint8_t kind) {
+    if (!drive) return ATA_ERR_INVALID;
+    
+    drive->drive_id.io_base = io_base;
+    drive->drive_id.ctrl_base = ctrl_base;
+    drive->drive_id.master = kind;
+    drive->exists = 0;
+
+    lock_init(&drive->lock);
+
+    return ATA_OK;
+}
+
+ata_error_t ata_read28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
+    if (!drive || !buffer) return ATA_ERR_INVALID;
     uint8_t err;
 
     current_working_drive = drive;
 
     for (uint32_t i = 0; i < count; i++) {
         err = ata_read28_one_sector_request(drive, sector + i, buffer);
-        if (err != 0) return err;
+        if (err != ATA_OK) return err;
 
         buffer += ATA_SECTOR_SIZE;
     }
 
-    return 0;
+    return ATA_OK;
 }
 
-uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
+ata_error_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, uint8_t *buffer) {
+    if (!drive || !buffer) return ATA_ERR_INVALID;
     uint8_t err;
 
     current_working_drive = drive;
 
     for (uint32_t i = 0; i < count; i++) {
         err = ata_write28_one_sector_request(drive, sector + i, buffer);
-        if (err != 0) return err;
+        if (err != ATA_OK) return err;
 
         buffer += ATA_SECTOR_SIZE;
     }
@@ -198,62 +230,75 @@ uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, 
     return ata_flush_cache(drive);
 }
 
-uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *buffer) {
+ata_error_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *buffer) {
+    if (!drive || !buffer) return ATA_ERR_INVALID;
+
+    lock_acquire(&drive->lock);
     current_working_drive = drive;
 
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
-    outb(drive->device_id.io_base + ATA_REG_LBA_LOW,  0);
-    outb(drive->device_id.io_base + ATA_REG_LBA_MID,  0);
-    outb(drive->device_id.io_base + ATA_REG_LBA_HIGH, 0);
+    outb(drive->drive_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->drive_id.master << 4));
+    outb(drive->drive_id.io_base + ATA_REG_LBA_LOW,  0);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_MID,  0);
+    outb(drive->drive_id.io_base + ATA_REG_LBA_HIGH, 0);
 
     /* send the command */
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+    outb(drive->drive_id.io_base + ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 
     uint8_t status = read_status_reg(drive);
     if (status == 0) {
         printf("ATA: No device detected on the port\n");
-        return 1;
+        return ATA_ERR_NO_DEVICE;
     }
 
     /* wait for drive to not be busy */
     ata_wait_not_busy(drive);
 
-    uint8_t LBAmid = inb(drive->device_id.io_base + ATA_REG_LBA_MID);
-    uint8_t LBAhi  = inb(drive->device_id.io_base + ATA_REG_LBA_HIGH);
+    uint8_t LBAmid = inb(drive->drive_id.io_base + ATA_REG_LBA_MID);
+    uint8_t LBAhi  = inb(drive->drive_id.io_base + ATA_REG_LBA_HIGH);
 
     if (LBAmid != 0 || LBAhi != 0) {
         printf("ATA: Device is not ATA compatible\n");
-        return 1;
+        return ATA_ERR_NO_DEVICE;
     }
 
     ata_wait_drq_ready(drive);
     if (ata_check_err(drive)) {
         printf("ATA: IDENTIFY failed, error flag raised\n");
-        return ata_get_err(drive);
+        return ATA_ERR_STATUS_ERR;
     }
 
     // Read IDENTIFY data
     for (uint32_t i = 0; i < ATA_SECTOR_SIZE/2; i++)
-        ((uint16_t *)buffer)[i] = inw(drive->device_id.io_base + ATA_REG_DATA);
+        ((uint16_t *)buffer)[i] = inw(drive->drive_id.io_base + ATA_REG_DATA);
 
     /* may or may not be needed, not so sure */
     delay_400ns(drive);
+
+    lock_release(&drive->lock);
+
+    return ATA_OK;
 }
 
-uint8_t ata_flush_cache(ata_drive_t *drive) {
+ata_error_t ata_flush_cache(ata_drive_t *drive) {
+    if (!drive) return ATA_ERR_INVALID;
+    
+    lock_acquire(&drive->lock);
+
     current_working_drive = drive;
 
-    outb(drive->device_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->device_id.master << 4));
-    outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_FLUSH);
+    outb(drive->drive_id.io_base + ATA_REG_HDDEVSEL, 0xE0 | (drive->drive_id.master << 4));
+    outb(drive->drive_id.io_base + ATA_REG_COMMAND, ATA_CMD_FLUSH);
 
     /* "sending the 0xE7 command to the Command Register (then waiting for BSY to clear)" */
     ata_wait_not_busy(drive);
 
     /* check if we got an error */
     uint8_t err = ata_check_err(drive);
-    if (err != 0) return ata_get_err(drive);
+    if (err != 0) return ATA_ERR_STATUS_ERR;
 
-    return 0;
+    lock_release(&drive->lock);
+
+    return ATA_OK;
 }
 
 /* 

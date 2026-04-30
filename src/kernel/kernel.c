@@ -71,13 +71,11 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     /* setup information on the first primery master drive */
     identify_device_data_t identify_buf;
-    drive_prime_master.device_id.io_base = ATA_PRIMARY_IO;
-    drive_prime_master.device_id.ctrl_base = ATA_PRIMARY_CTRL;
-    drive_prime_master.device_id.master = 0;
-    drive_prime_master.exists = 1;
+    ata_drive_init(&drive_prime_master, ATA_PRIMARY_IO, ATA_PRIMARY_CTRL, ATA_MASTER_DRIVE);
 
     uint8_t _ = ata_send_identify_command(&drive_prime_master, &identify_buf);
     if (_ == 1) PANIC("ATA identify error");
+    drive_prime_master.exists = 1;
     print_identify_device_data(&identify_buf);
     drive_prime_master.size_in_sectors = identify_buf.UserAddressableSectors;
 
