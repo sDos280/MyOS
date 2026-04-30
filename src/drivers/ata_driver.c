@@ -35,14 +35,13 @@ static uint8_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t sector
     outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
     outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
+    /* check if disk is not busy and ready */
+    ata_wait_not_busy(drive);
+    ata_wait_drive_ready(drive);
+
     /* send the command */
     outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
-
-    /* check if disk is ready */
-    ata_wait_bsy_clear(drive);
-    /* "You may also need to ignore ERR and DF the first four times that you read the Status, if you are polling" */
-    delay_400ns(drive);
-    ata_wait_drq_ready(drive);
+    ata_wait_not_busy(drive);
 
     /* check if we got an error */
     if (ata_check_err(drive))
@@ -70,32 +69,25 @@ static uint8_t ata_write28_one_sector_request(ata_drive_t *drive, uint32_t secto
     outb(drive->device_id.io_base + ATA_REG_LBA_MID, (sector >> 8) & 0xFF);
     outb(drive->device_id.io_base + ATA_REG_LBA_HIGH,(sector >>16) & 0xFF);
 
+    /* check if disk is not busy and ready */
+    ata_wait_not_busy(drive);
+    ata_wait_drive_ready(drive);
+
     /* send the command */
     outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_WRITE_PIO);
 
-    printf("before writing status check %d\n", sector);
-    /* check if disk is ready */
-    ata_wait_bsy_clear(drive);
-    /* "You may also need to ignore ERR and DF the first four times that you read the Status, if you are polling" */
-    printf("after writing status check %d\n", sector);
-
-    printf("before data ready check %d\n", sector);
-    delay_400ns(drive);
-    ata_wait_drq_ready(drive);
-    printf("before after check %d\n", sector);
-   
+    /* check if disk is not busy and ready */
+    ata_wait_not_busy(drive);
 
     /* check if we got an error */
-    uint8_t err = ata_get_err(drive);
-    if (err != 0) return ata_get_err(drive);
+    if (ata_get_err(drive)) return ata_get_err(drive);
 
     for(int i = 0; i < ATA_SECTOR_SIZE/2; i++) {
         outw(drive->device_id.io_base + ATA_REG_DATA, ((uint16_t *)buffer)[i]);
         asm volatile("jmp .+2"); // short mandatory delay
 	}
 
-    /* may or may not be needed, not so sure */
-    delay_400ns(drive);
+    ata_wait_not_busy(drive);
 
     return 0;
 }
@@ -108,7 +100,7 @@ static uint32_t ata_response_handler(cpu_status_t *regs) {
 /*
  * Helper functions
  */
-void ata_wait_bsy_clear(ata_drive_t *drive) {
+void ata_wait_not_busy(ata_drive_t *drive) {
     uint8_t status;
 
     do {
@@ -126,6 +118,27 @@ void ata_wait_drq_ready(ata_drive_t *drive) {
             return;
 
     } while (!(status & ATA_SR_DRQ));
+}
+
+void ata_wait_drive_ready(ata_drive_t *drive) {
+    uint8_t status;
+
+    while (1)
+    {
+        status = inb(drive->device_id.io_base + ATA_REG_STATUS);
+
+        // Wait while BSY is set
+        if (status & ATA_SR_BSY)
+            continue;
+
+        // Check for errors
+        if (status & (ATA_SR_ERR | ATA_SR_DF))
+            return;
+
+        // Ready when DRDY is set
+        if (status & ATA_SR_DRDY)
+            return;
+    }
 }
 
 uint8_t ata_check_err(ata_drive_t *drive) {
@@ -176,9 +189,7 @@ uint8_t ata_write28_request(ata_drive_t *drive, uint32_t sector, uint8_t count, 
     current_working_drive = drive;
 
     for (uint32_t i = 0; i < count; i++) {
-        printf("before writing sector %d\n", sector+i);
         err = ata_write28_one_sector_request(drive, sector + i, buffer);
-        printf("after writing sector %d\n", sector+i);
         if (err != 0) return err;
 
         buffer += ATA_SECTOR_SIZE;
@@ -205,7 +216,7 @@ uint8_t ata_send_identify_command(ata_drive_t *drive, identify_device_data_t *bu
     }
 
     /* wait for drive to not be busy */
-    ata_wait_bsy_clear(drive);
+    ata_wait_not_busy(drive);
 
     uint8_t LBAmid = inb(drive->device_id.io_base + ATA_REG_LBA_MID);
     uint8_t LBAhi  = inb(drive->device_id.io_base + ATA_REG_LBA_HIGH);
@@ -236,7 +247,7 @@ uint8_t ata_flush_cache(ata_drive_t *drive) {
     outb(drive->device_id.io_base + ATA_REG_COMMAND, ATA_CMD_FLUSH);
 
     /* "sending the 0xE7 command to the Command Register (then waiting for BSY to clear)" */
-    ata_wait_bsy_clear(drive);
+    ata_wait_not_busy(drive);
 
     /* check if we got an error */
     uint8_t err = ata_check_err(drive);

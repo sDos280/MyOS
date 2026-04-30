@@ -31,6 +31,7 @@
 #define ATA_SR_ERR  0x01  // Error
 #define ATA_SR_DRQ  0x08  // Data request ready
 #define ATA_SR_DF   0x20  // Device fault
+#define ATA_SR_DRDY 0x40  // Device ready
 #define ATA_SR_BSY  0x80  // Busy
 
 // ATA commands
@@ -432,12 +433,17 @@ typedef struct __attribute__((packed)) identify_device_data_struct {
 /**
  * Waits until BSY (busy) flag is cleared for the given drive.
  */
-void ata_wait_bsy_clear(ata_drive_t *drive);
+void ata_wait_not_busy(ata_drive_t *drive);
 
 /**
  * Waits until DRQ (data ready) flag is set for the given drive.
  */
 void ata_wait_drq_ready(ata_drive_t *drive);
+
+/**
+ * Waits until DRDY (device ready) flag is set for the given drive.
+ */
+void ata_wait_drive_ready(ata_drive_t *drive);
 
 /**
  * Check if the err flag is set (1 error, 0 no error).
