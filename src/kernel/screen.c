@@ -2,19 +2,16 @@
 #include "types.h"
 #include "utils.h"
 
-#define BACKGROUND_COLOUR_DEFAULT 0x07
-#define FOREGROUND_COLOUR_DEFAULT 0x00
-
 static volatile char *video = (volatile char*)0xFFFFF000;
-static char backgroup_colour = BACKGROUND_COLOUR_DEFAULT;
-static char foregroup_colour = FOREGROUND_COLOUR_DEFAULT;
+static char foregroup_colour = SCREEN_LIGHT_GRAY_COLOUR;
+static char backgroup_colour = SCREEN_BLACK_COLOUR << 4;
 
 void screen_set_foreground_colour(uint8_t colour) {
     foregroup_colour = colour;
 }
 
 void screen_set_background_colour(uint8_t colour) {
-    backgroup_colour = colour;
+    backgroup_colour = colour << 4;
 }
 
 void screen_flush_tty(tty_t * tty) {

@@ -2,6 +2,40 @@
 #include "kernel/screen.h"
 #include "utils.h"
 
+static const char *tty_parse_ansi_escape(tty_t *tty, const char *s);
+
+
+static const char *tty_parse_ansi_escape(tty_t *tty, const char *s) {
+    // s points to ESC
+    s += 2; // skip 'ESC' '['
+
+    int code = 0;
+
+    while (*s >= '0' && *s <= '9') {
+        code = code * 10 + (*s - '0');
+        s++;
+    }
+
+    if (*s != 'm') {
+        return s;  // unsupported command
+    }
+
+    if (code == 0) {
+        screen_set_foreground_colour(SCREEN_LIGHT_GRAY_COLOUR);
+        screen_set_background_colour(SCREEN_BLACK_COLOUR);
+    } else if(code >= 30 && code <= 37) {
+        screen_set_foreground_colour(code - 30);
+    } else if(code >= 40 && code <= 47) {
+        screen_set_background_colour(code - 40);
+    } else if(code >= 90 && code <= 97) {
+        screen_set_foreground_colour((code - 90) | SCREEN_LIGHT_COLOUR);
+    } else if(code >= 100 && code <= 107) {
+        screen_set_foreground_colour((code - 100) | SCREEN_LIGHT_COLOUR);
+    }
+
+    return s + 1; // skip final 'm'
+}
+
 void tty_init(tty_t * tty) {
     tty_clean_buffer(tty);
     memset(tty->in_char_queue, 0, TTY_IN_CHAR_QUEUE_SIZE);
@@ -92,9 +126,22 @@ void tty_write_char(tty_t * tty, char c) {
 void tty_write_string(tty_t * tty, char * str) {
     for (size_t i = 0; i < TTY_MAX_STRING_PRINT; i++) {
         if (str[i] == '\0') break;
+
+        /* check if command starts here */
+        if (str[i] == '\033' && i+1 < TTY_MAX_STRING_PRINT && str[i+1] == '[') {
+            char * new_str = tty_parse_ansi_escape(tty, &str[i]);
+            
+            /* jump over the command */
+            if (new_str != &str[i]) {
+                i += (new_str - &str[i]) - 1; /* -1 because after the continue will do i++ */
+                continue;
+            }
+        }
+
         tty_write_char(tty, str[i]);
     }
 }
+
 
 static uint8_t is_in_char_queue_empty(tty_t * tty) {
     return tty->head_char_queue == -1;

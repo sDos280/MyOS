@@ -45,6 +45,7 @@ void printf(const char* format, ...) {
 	i=vsprintf(buf, format,args);
 	va_end(args);
 
+    /* vsprint build the final string with command colours, tty write will handle the rest */
     tty_write_string(ctty, buf);
 }
 
