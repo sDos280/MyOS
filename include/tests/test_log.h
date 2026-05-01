@@ -1,5 +1,5 @@
-#ifndef TESTS_HELPER_H
-#define TESTS_HELPER_H
+#ifndef TEST_LOG_H
+#define TEST_LOG_H
 
 #include "kernel/print.h"
 
@@ -53,4 +53,4 @@
 #define TEST_LOG_WARN(fmt, ...) printf(TEST_FG_YELLOW        "[WARN ] " TEST_COLOR_RESET fmt, ##__VA_ARGS__)
 #define TEST_LOG_INFO(fmt, ...) printf(TEST_FG_BLUE          "[INFO ] " TEST_COLOR_RESET fmt, ##__VA_ARGS__)
 
-#endif // TESTS_HELPER_H
+#endif // TEST_LOG_H

@@ -14,6 +14,7 @@
 #include "multitasking/scheduler.h"
 #include "tests/ata_test.h"
 #include "tests/flatfs_test.h"
+#include "tests/heap_test.h"
 #include "multiboot_helper.h"
 #include "multiboot.h"
 #include "utils.h"
@@ -85,6 +86,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     print_clean_screen();
     ata_test_write_read_3_sectors(&drive_prime_master, 50);
     flatfs_test_basic(&drive_prime_master);
+    heap_test_basic();
+    heap_test_many_small_allocs();
 
     /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);

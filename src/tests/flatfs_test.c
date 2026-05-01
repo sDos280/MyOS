@@ -1,5 +1,5 @@
 #include "tests/flatfs_test.h"
-#include "tests/tests_helper.h"
+#include "tests/test_log.h"
 #include "utils.h"
 
 #define TEST_FILE_NAME "test.bin"
