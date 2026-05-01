@@ -23,7 +23,7 @@ static void delay_400ns(ata_drive_t *drive) {
 }
 
 static uint8_t read_status_reg(ata_drive_t *drive) {
-    if (!drive) return;
+    if (!drive) return 0;
 
     return inb(drive->drive_id.io_base + ATA_REG_STATUS);
 }
