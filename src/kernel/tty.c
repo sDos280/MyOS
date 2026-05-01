@@ -6,6 +6,10 @@ static const char *tty_parse_ansi_escape(tty_t *tty, const char *s);
 
 
 static const char *tty_parse_ansi_escape(tty_t *tty, const char *s) {
+    char light = 0;
+    char real_color;
+    char temp;
+
     // s points to ESC
     s += 2; // skip 'ESC' '['
 
@@ -20,19 +24,59 @@ static const char *tty_parse_ansi_escape(tty_t *tty, const char *s) {
         return s;  // unsupported command
     }
 
+    
     if (code == 0) {
         tty_set_foreground_colour(tty, LIGHT_GRAY_COLOUR);
         tty_set_background_colour(tty, BLACK_COLOUR);
-    } else if(code >= 30 && code <= 37) {
-        tty_set_foreground_colour(tty, code - 30);
-    } else if(code >= 40 && code <= 47) {
-        tty_set_background_colour(tty, code - 40);
-    } else if(code >= 90 && code <= 97) {
-        tty_set_foreground_colour(tty, (code - 90) | LIGHT_COLOUR);
-    } else if(code >= 100 && code <= 107) {
-        tty_set_background_colour(tty, (code - 100) | LIGHT_COLOUR);
+        goto end;
     }
 
+    temp = code % 10;
+
+    /* check if code not defined */
+    if (temp >= 0 && code <= 7) goto end;
+
+    switch (temp) {
+    case 0:
+        real_color = BLACK_COLOUR;
+        break;
+    case 1:
+        real_color = RED_COLOUR;
+        break;
+    case 2:
+        real_color = GREEN_COLOUR;
+        break;
+    case 3:
+        real_color = BROWN_COLOUR;
+        break;
+    case 4:
+        real_color = BLUE_COLOUR;
+        break;
+    case 5:
+        real_color = MEGENTA_COLOUR;
+        break;
+    case 6:
+        real_color = CYAN_COLOUR;
+        break;
+    case 7:
+        real_color = LIGHT_GRAY_COLOUR;
+        break;
+    
+    default:
+        break;
+    }
+
+    if(code >= 30 && code <= 37) {
+        tty_set_foreground_colour(tty, real_color);
+    } else if(code >= 40 && code <= 47) {
+        tty_set_background_colour(tty, real_color);
+    } else if(code >= 90 && code <= 97) {
+        tty_set_foreground_colour(tty, real_color | LIGHT_COLOUR);
+    } else if(code >= 100 && code <= 107) {
+        tty_set_background_colour(tty, real_color | LIGHT_COLOUR);
+    }
+
+end:
     return s + 1; // skip final 'm'
 }
 
