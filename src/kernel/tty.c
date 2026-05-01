@@ -81,6 +81,8 @@ end:
 }
 
 void tty_init(tty_t * tty) {
+    tty_set_foreground_colour(tty, LIGHT_GRAY_COLOUR);
+    tty_set_background_colour(tty, BLACK_COLOUR);
     tty_clean_buffer(tty);
     memset(tty->in_char_queue, 0, TTY_IN_CHAR_QUEUE_SIZE);
     tty->head_char_queue = -1;

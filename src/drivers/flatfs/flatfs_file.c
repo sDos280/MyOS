@@ -161,13 +161,18 @@ flatfs_err_t flatfs_write(flatfs_t *fs,
         uint32_t local_size   = MIN(block_size - local_offset, size - local_bytes_written);
         uint32_t phys_block = fs->sb.data_start_block + inode.blocks[block_idx];
         
-        if ((err = flatfs_read_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK)
+        if ((err = flatfs_read_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK) {
+            kfree(block_buf);
             return err;
+        }
+            
 
         memcpy(block_buf + local_offset, buf + local_bytes_written, local_size);
         
-        if ((err = flatfs_write_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK)
+        if ((err = flatfs_write_blocks(fs, phys_block, 1, block_buf)) != FLATFS_OK) {
+            kfree(block_buf);
             return err;
+        }
 
         local_bytes_written += local_size;
         if (bytes_written)

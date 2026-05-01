@@ -104,6 +104,7 @@ flatfs_err_t flatfs_format(ata_drive_t *drive,
         }
     }
 
+    kfree(temp_block);
     return FLATFS_OK;
 }
 
