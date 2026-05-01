@@ -4,12 +4,12 @@
 #include "kernel/print.h"
 
 #define TEST_COLOR_RESET  "\033[0m"
-#define TEST_COLOR_RED    "\033[31m"
+#define TEST_COLOR_RED    "\033[34m"
 #define TEST_COLOR_GREEN  "\033[32m"
-#define TEST_COLOR_YELLOW "\033[33m"
-#define TEST_COLOR_BLUE   "\033[34m"
-#define TEST_COLOR_CYAN   "\033[36m"
-#define TEST_COLOR_WHITE  "\033[37m"
+#define TEST_COLOR_YELLOW "\033[96m"
+#define TEST_COLOR_BLUE   "\033[31m"
+#define TEST_COLOR_CYAN   "\033[33m"
+#define TEST_COLOR_WHITE  "\033[97m"
 
 
 #define TEST_LOG_TEST(fmt, ...) printf(TEST_COLOR_WHITE  "[TEST ] " TEST_COLOR_RESET fmt, ##__VA_ARGS__)

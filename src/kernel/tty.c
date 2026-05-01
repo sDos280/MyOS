@@ -21,16 +21,16 @@ static const char *tty_parse_ansi_escape(tty_t *tty, const char *s) {
     }
 
     if (code == 0) {
-        screen_set_foreground_colour(SCREEN_LIGHT_GRAY_COLOUR);
-        screen_set_background_colour(SCREEN_BLACK_COLOUR);
+        tty_set_foreground_colour(tty, LIGHT_GRAY_COLOUR);
+        tty_set_background_colour(tty, BLACK_COLOUR);
     } else if(code >= 30 && code <= 37) {
-        screen_set_foreground_colour(code - 30);
+        tty_set_foreground_colour(tty, code - 30);
     } else if(code >= 40 && code <= 47) {
-        screen_set_background_colour(code - 40);
+        tty_set_background_colour(tty, code - 40);
     } else if(code >= 90 && code <= 97) {
-        screen_set_foreground_colour((code - 90) | SCREEN_LIGHT_COLOUR);
+        tty_set_foreground_colour(tty, (code - 90) | LIGHT_COLOUR);
     } else if(code >= 100 && code <= 107) {
-        screen_set_foreground_colour((code - 100) | SCREEN_LIGHT_COLOUR);
+        tty_set_background_colour(tty, (code - 100) | LIGHT_COLOUR);
     }
 
     return s + 1; // skip final 'm'
@@ -45,6 +45,14 @@ void tty_init(tty_t * tty) {
     tty->head_key_queue = -1;
     tty->tail_key_queue = -1;
     tty->ankered = TTY_ANKERED;
+}
+
+void tty_set_foreground_colour(tty_t * tty, uint8_t colour) {
+    tty->foregroup_colour = colour;
+}
+
+void tty_set_background_colour(tty_t * tty, uint8_t colour) {
+    tty->backgroup_colour = colour << 4;
 }
 
 void tty_set_anker_state(tty_t * tty, uint8_t state) {
@@ -76,7 +84,9 @@ void tty_clean_buffer(tty_t * tty) {
     tty->column = 0;
     tty->row = 0;
     tty->screen_row = 0;
-    memset(tty->screeb_buffer, 0, SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
+    memset(tty->screen_text_buffer, 0, SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
+    memset(tty->screen_colour_buffer, (BLACK_COLOUR << 4) | LIGHT_GRAY_COLOUR, 
+        SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
 
     screen_flush_tty(tty); /* update the screen */
 }
@@ -86,6 +96,7 @@ void tty_write_char(tty_t * tty, char c) {
     uint8_t print_char_to_screen = (relative_row < SCREEN_ROWS);
     uint8_t flush_screen = 0;
     uint32_t column_copy = tty->column;
+    char colour = (BLACK_COLOUR << 4) | LIGHT_GRAY_COLOUR;
     
     /* check if next char to write is over the screen */
     if (relative_row >= SCREEN_ROWS) {
@@ -103,7 +114,9 @@ void tty_write_char(tty_t * tty, char c) {
         break;
     
     default:
-        tty->screeb_buffer[tty->row][tty->column] = c;
+        tty->screen_text_buffer[tty->row][tty->column] = c;
+        colour = tty->backgroup_colour | tty->foregroup_colour;
+        tty->screen_colour_buffer[tty->row][tty->column] = colour;
         tty->column++;
         break;
     }
@@ -119,7 +132,7 @@ void tty_write_char(tty_t * tty, char c) {
         flush_screen = 1;
     }
 
-    if (print_char_to_screen) screen_print_char(c, relative_row, column_copy);
+    if (print_char_to_screen) screen_print_char(c, colour, relative_row, column_copy);
     if (flush_screen == 1) screen_flush_tty(tty);
 }
 
