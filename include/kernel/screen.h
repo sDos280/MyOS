@@ -4,6 +4,8 @@
 #include "kernel/tty.h"
 #include "types.h"
 
+void screen_set_foreground_colour(uint8_t colour);
+void screen_set_background_colour(uint8_t colour);
 void screen_flush_tty(tty_t * tty);
 void screen_print_char(char c, uint32_t row, uint32_t column);
 
