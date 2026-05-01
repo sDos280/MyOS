@@ -25,7 +25,7 @@ lstack_top:
 .section .bootstrap_stack, "aw", @nobits
 .align 16
 stack_bottom:
-.skip 16384
+.skip 0x200000
 stack_top:
 
 

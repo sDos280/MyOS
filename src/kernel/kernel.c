@@ -95,10 +95,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     
     heap_test_basic();
     heap_test_many_small_allocs();
-    
-   
 
-    /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
+    process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x100000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x100000);
 
     scheduler_add_process_to_ready_queue(p1);
@@ -107,7 +105,6 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     print_process_list(p1);
 
     scheduler_set_on();
-    scheduler_schedule();*/ /* start scheduling */
 
 
     while (1);

@@ -108,7 +108,7 @@ void scheduler_schedule() {
 
     current_process->status = PROCESS_READY;
 
-    if (current_process->type != PROCESS_IDLE)
+    if (current_process_copy->type != PROCESS_IDLE)
         add_to_process_queue(&processes_ready_queue, current_process); /* add the process to the end of the queue */
     
     next_process->status = PROCESS_RUNNING;
@@ -121,7 +121,6 @@ void scheduler_thread_exit() {
     if (current_process->type == PROCESS_IDLE) PANIC("The idle thread can't exit!!!");
 
     process_t * next_process = scheduler_get_next_process();
-
     /* if the next process equals to the current process then we need to set the current process to idle */
     if (next_process == current_process) {
         current_process = idle_process;
