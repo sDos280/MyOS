@@ -1,6 +1,7 @@
 #ifndef TTY_DRIVER_H
 #define TTY_DRIVER_H
 
+#include "drivers/keys.h"
 #include "types.h"
 
 #define SCREEN_COLUMNS 80
@@ -50,7 +51,7 @@ typedef struct tty_struct {
     char in_char_queue[TTY_IN_CHAR_QUEUE_SIZE];  /* a queue of the incoming chars */
     int32_t head_char_queue;                     /* the head of the in char queue */
     int32_t tail_char_queue;                     /* the tail of the in char queue */
-    char in_key_queue[TTY_IN_KEY_QUEUE_SIZE];   /* a queue of the incoming chars */
+    char in_key_queue[TTY_IN_KEY_QUEUE_SIZE];    /* a queue of the incoming chars */
     int32_t head_key_queue;                      /* the head of the in char queue */
     int32_t tail_key_queue;                      /* the tail of the in char queue */
     uint8_t ankered;                             /* the ankered state of the tty */
