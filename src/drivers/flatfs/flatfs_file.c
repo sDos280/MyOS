@@ -1,7 +1,7 @@
 #include "drivers/flatfs/flatfs_driver.h"
 #include "mm/kheap.h"
-#include "bitmap_util.h"
-#include "utils.h"
+#include "utils/bitmap_util.h"
+#include "utils/utils.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 

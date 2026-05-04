@@ -1,6 +1,6 @@
 #include "kernel/tty.h"
 #include "kernel/screen.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 static const char *tty_parse_ansi_escape(tty_t *tty, const char *s);
 

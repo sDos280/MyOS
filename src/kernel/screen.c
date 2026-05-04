@@ -1,6 +1,6 @@
 #include "kernel/screen.h"
 #include "types.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 static volatile char *video = (volatile char*)0xFFFFF000;
 

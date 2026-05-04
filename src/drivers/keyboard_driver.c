@@ -2,7 +2,7 @@
 #include "kernel/tty.h"
 #include "drivers/keyboard_driver.h"
 #include "io/port.h"
-#include "utils.h"
+#include "utils/utils.h"
 #include "errno.h"
 
 // Each index is the PS/2 Set 1 scan code

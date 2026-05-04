@@ -3,7 +3,7 @@
 #include "mm/paging.h"
 #include "mm/pmm.h"
 #include "mm/kheap.h"
-#include "utils.h"
+#include "utils/utils.h"
 #include "errno.h"
 
 // paging breaks down a linear address: | Table Entry (10 bits) | Page Entry (10 bits) | Offset (12 bits) |

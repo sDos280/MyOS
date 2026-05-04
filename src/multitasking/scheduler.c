@@ -2,7 +2,7 @@
 #include "kernel/print.h"
 #include "kernel/panic.h"
 #include "mm/kheap.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 /* define in process */
 uint8_t scheduler_on;

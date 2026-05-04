@@ -18,7 +18,7 @@
 #include "tests/heap_test.h"
 #include "multiboot_helper.h"
 #include "multiboot.h"
-#include "utils.h"
+#include "utils/utils.h"
 #include "types.h"
 
 void p1_main();

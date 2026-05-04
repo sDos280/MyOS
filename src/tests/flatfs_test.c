@@ -1,6 +1,6 @@
 #include "tests/flatfs_test.h"
 #include "tests/test_log.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 #define TEST_FILE_NAME "test.bin"
 #define TEST_INODES 64

@@ -1,6 +1,6 @@
 #include "tests/ata_test.h"
 #include "tests/test_log.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 void ata_test_write_read_3_sectors(ata_drive_t *drive, uint32_t start_sector)
 {

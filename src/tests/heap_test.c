@@ -1,6 +1,6 @@
 #include "tests/test_log.h"
 #include "mm/kheap.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 static int heap_check_pattern(uint8_t *buf, size_t size, uint8_t value)
 {

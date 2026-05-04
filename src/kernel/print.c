@@ -2,7 +2,7 @@
 #include "kernel/print.h"
 #include "kernel/print.h"
 #include "arg.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 static char buf[TTY_MAX_STRING_PRINT+1]; /* temporary buffer for printf */
 tty_t * ctty; /* current tty */

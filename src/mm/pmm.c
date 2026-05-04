@@ -1,6 +1,6 @@
 #include "kernel/panic.h"
 #include "mm/pmm.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 #define FRAME_ALIGN(addr) (addr & ~0xFFF)
 #define FRAME_INDEX(addr) (addr >> 12)

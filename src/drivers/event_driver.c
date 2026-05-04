@@ -22,8 +22,8 @@ void event_put_event(event_handler_t * eh, event_type_t type, uint32_t code) {
     if (!eh) return;
 
     /* FIX: that gives deadlock */
-    if (event_is_events_queue_full(eh))
-        event_get_key(eh);  // The quere is full, so remove one element to clear spot
+    //if (event_is_events_queue_full(eh))
+    //    event_get_event(eh);  // The quere is full, so remove one element to clear spot
     
     lock_acquire(&eh->lock);
 

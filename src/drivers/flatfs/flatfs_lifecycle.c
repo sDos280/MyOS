@@ -1,6 +1,6 @@
 #include "mm/kheap.h"
 #include "drivers/flatfs/flatfs_driver.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 flatfs_err_t flatfs_format(ata_drive_t *drive,
                            uint32_t total_inodes,

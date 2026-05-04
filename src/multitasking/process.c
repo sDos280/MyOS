@@ -2,7 +2,7 @@
 #include "mm/kheap.h"
 #include "mm/paging.h"
 #include "kernel/print.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 static pid_t next_pid = 0;
 

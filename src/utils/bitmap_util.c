@@ -1,6 +1,6 @@
 // bitmap_util.c
 
-#include "bitmap_util.h"
+#include "utils/bitmap_util.h"
 
 
 uint8_t bitmap_get(const uint8_t *bitmap, uint32_t idx)

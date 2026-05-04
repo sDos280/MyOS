@@ -1,7 +1,7 @@
 #include "kernel/description_tables.h"
 #include "kernel/print.h"
 #include "io/pic.h"
-#include "utils.h"
+#include "utils/utils.h"
 #include "errno.h"
 
 gdt_entry_t gdt_entries[GDT_ENTRIES];
