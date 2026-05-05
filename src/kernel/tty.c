@@ -1,5 +1,6 @@
 #include "kernel/tty.h"
 #include "kernel/screen.h"
+#include "kernel/panic.h"
 #include "utils/utils.h"
 
 static const char *tty_parse_ansi_escape(tty_t *tty, const char *s);
@@ -241,6 +242,8 @@ void tty_handle_event(tty_t *tty)
     event_t e;
     ring_queue_status_t st = event_pop_event(&tty->event_handler, &e);
 
+    if (st != RING_QUEUE_OK) PANIC("Event handler got event pop not ok");
+    
     /* check for not key press */
     if (!(e.type == KEY_RELEASE || e.type == KEY_PRESS))
         return; /* not implemented (yet) */
@@ -256,7 +259,7 @@ void tty_handle_event(tty_t *tty)
         return;
 
     switch (e.code) {
-        /* regular alpha */
+        /* Digits (top row) */
         case KEY_0:
         case KEY_1:
         case KEY_2:
@@ -267,6 +270,7 @@ void tty_handle_event(tty_t *tty)
         case KEY_7:
         case KEY_8:
         case KEY_9:
+        /* Letters */
         case KEY_A:
         case KEY_B:
         case KEY_C:
@@ -295,6 +299,21 @@ void tty_handle_event(tty_t *tty)
         case KEY_Z:
             tty_write_char(tty, key_to_ascii(e.code, tty->shift_pressed));
             break;
+
+        /* Control and special keys */
+        case KEY_SPACE:
+            tty_write_char(tty, ' ');
+            break;
+        case KEY_TAB: /* a tab is 4 spaces */
+            tty_write_char(tty, ' ');
+            tty_write_char(tty, ' ');
+            tty_write_char(tty, ' ');
+            tty_write_char(tty, ' ');
+            break;
+        case KEY_ENTER:
+            tty_write_char(tty, '\n');
+            break;
+        
         
         /* TODO: Add all the other keys functionalities */
 
