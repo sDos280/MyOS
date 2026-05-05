@@ -46,6 +46,7 @@ static ata_error_t ata_read28_one_sector_request(ata_drive_t *drive, uint32_t se
     /* send the command */
     outb(drive->drive_id.io_base + ATA_REG_COMMAND, ATA_CMD_READ_PIO);
     ata_wait_not_busy(drive);
+    ata_wait_drq_ready(drive);
 
     /* check if we got an error */
     if (ata_check_err(drive))

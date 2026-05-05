@@ -314,7 +314,6 @@ void tty_handle_event(tty_t *tty)
             tty_write_char(tty, '\n');
             break;
         
-        
         /* TODO: Add all the other keys functionalities */
 
         case KEY_PAGEUP:
