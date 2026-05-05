@@ -31,8 +31,17 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     multiboot_info_t multiboot_info_structure;
     tty_t tty;
     ata_drive_t drive_prime_master;
+    uint8_t temp_buffer[50 * sizeof(event_t)];
+    tty_init(&tty); /* FIX: new tty implementation needs heap initiated first */
 
-    tty_init(&tty);
+    /* TEMP FIX */
+    tty.event_handler.events_queue.buffer = temp_buffer;
+    tty.event_handler.events_queue.capacity = 50;
+    tty.event_handler.events_queue.element_size = sizeof(event_t);
+    tty.event_handler.events_queue.head = 0;
+    tty.event_handler.events_queue.tail = 0;
+    tty.event_handler.events_queue.count = 0;
+
     print_set_tty(&tty);
 
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
@@ -73,6 +82,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     
     asm volatile ("sti"); // enable interrupts
 
+    tty_init(&tty); /* initialize tty again after all modules initialized (heap is now initizlied)*/
+    
     /* setup information on the first primery master drive */
     identify_device_data_t identify_buf;
     ata_drive_init(&drive_prime_master, ATA_PRIMARY_IO, ATA_PRIMARY_CTRL, ATA_MASTER_DRIVE);
@@ -92,7 +103,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     heap_test_basic();
     heap_test_many_small_allocs();
 
-    process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x10000);
+    /*process_t * p1 = process_create(PROCESS_KERNEL, p1_main, 0x10000);
     process_t * p2 = process_create(PROCESS_KERNEL, p2_main, 0x10000);
 
     scheduler_add_process_to_ready_queue(p1);
@@ -100,7 +111,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     print_process_list(p1);
 
-    scheduler_set_on();
+    scheduler_set_on();*/
 
 
     while (1);

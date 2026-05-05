@@ -9,6 +9,7 @@
 
 typedef enum event_type_struct {
     KEY_PRESS,
+    KEY_RELEASE,
 } event_type_t;
 
 typedef struct event_struct {
@@ -25,8 +26,8 @@ typedef struct event_handler_struct {
 ring_queue_status_t event_init_event_handler(event_handler_t * eh);
 uint8_t event_is_events_queue_empty(event_handler_t * eh);  /* 1 - empty, 0 - not empty */
 uint8_t event_is_events_queue_full(event_handler_t * eh);   /* 1 - full, 0 - not full */
-ring_queue_status_t event_put_event(event_handler_t * eh, event_type_t type, uint32_t code);    
-ring_queue_status_t event_get_event(event_handler_t * eh, event_t *event_out);
+ring_queue_status_t event_push_event(event_handler_t * eh, event_type_t type, uint32_t code);    
+ring_queue_status_t event_pop_event(event_handler_t * eh, event_t *event_out);
 void event_destroy_event_handler(event_handler_t * eh);
 
 #endif // EVENT_DRIVER_H

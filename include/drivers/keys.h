@@ -159,4 +159,6 @@
 
 #define KEY_EXTENDED 0xe0
 
+char key_to_ascii(uint8_t key, uint8_t shift_on);
+
 #endif // KEYS_H

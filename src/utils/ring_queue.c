@@ -1,7 +1,9 @@
 // ring_queue.c
 
-#include "utils/utils.h"
+
+#include "mm/kheap.h"
 #include "utils/ring_queue.h"
+#include "utils/utils.h"
 
 ring_queue_status_t ring_queue_init(ring_queue_t *queue,
                                     uint32_t capacity,
@@ -17,7 +19,7 @@ ring_queue_status_t ring_queue_init(ring_queue_t *queue,
         return RING_QUEUE_ERR_BAD_ARG;
     }
 
-    queue->buffer = (uint8_t *)malloc(capacity * element_size);
+    queue->buffer = (uint8_t *)kalloc(capacity * element_size);
     if (!queue->buffer)
     {
         return RING_QUEUE_ERR_ALLOC;
@@ -43,7 +45,7 @@ void ring_queue_destroy(ring_queue_t *queue)
 
     if (queue->buffer)
     {
-        free(queue->buffer);
+        kfree(queue->buffer);
     }
 
     queue->buffer = 0;

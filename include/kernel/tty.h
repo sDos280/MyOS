@@ -2,6 +2,7 @@
 #define TTY_DRIVER_H
 
 #include "drivers/keys.h"
+#include "drivers/event_driver.h"
 #include "types.h"
 
 #define SCREEN_COLUMNS 80
@@ -48,13 +49,10 @@ typedef struct tty_struct {
           [SCREEN_BUFFER_COLUMNS];               /* the colour buffer used to save the terminal colour data */
     char foregroup_colour;                       /* the current foreground colour */
     char backgroup_colour;                       /* the current background colour */
-    char in_char_queue[TTY_IN_CHAR_QUEUE_SIZE];  /* a queue of the incoming chars */
-    int32_t head_char_queue;                     /* the head of the in char queue */
-    int32_t tail_char_queue;                     /* the tail of the in char queue */
-    char in_key_queue[TTY_IN_KEY_QUEUE_SIZE];    /* a queue of the incoming chars */
-    int32_t head_key_queue;                      /* the head of the in char queue */
-    int32_t tail_key_queue;                      /* the tail of the in char queue */
     uint8_t ankered;                             /* the ankered state of the tty */
+
+    event_handler_t event_handler;               /* the event handler of the tty */
+    uint8_t shift_pressed;                       /* 1 for pressed shift, else 0 */
 } tty_t;
 
 void tty_init(tty_t * tty);
@@ -65,6 +63,7 @@ void tty_set_screen_row(tty_t * tty, int32_t row);
 void tty_clean_buffer(tty_t * tty); /* clear both buffers, doesn't change colors */
 void tty_write_char(tty_t * tty, char c); /* set the current */
 void tty_write_string(tty_t * tty, char * str); /* write a string, max number of chars to print is TTY_MAX_STRING_PRINT */
+void tty_handle_event(tty_t * tty);
 void tty_putchar(tty_t * tty, char c);
 char tty_getchar(tty_t * tty);
 void tty_put_key_press(tty_t * tty, uint8_t key);
