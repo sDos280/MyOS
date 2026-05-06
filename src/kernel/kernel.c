@@ -16,6 +16,7 @@
 #include "tests/ata_test.h"
 #include "tests/flatfs_test.h"
 #include "tests/heap_test.h"
+#include "tests/multiboot_info_test.h"
 #include "multiboot_helper.h"
 #include "multiboot.h"
 #include "utils/utils.h"
@@ -53,6 +54,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
 
     /* there is a need to copy that before paging */
     memcpy(&multiboot_info_structure, lower_multiboot_info_structure, sizeof(multiboot_info_t));
+
+    multiboot_print_info(multiboot_magic, &multiboot_info_structure);
 
     idt_init();
     printf("IDT initialized.\n");

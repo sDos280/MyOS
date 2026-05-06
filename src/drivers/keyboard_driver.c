@@ -159,7 +159,6 @@ void keyboard_handle_scancode(uint8_t scancode) {
 }
 
 void keyboard_driver_init() {
-    
     register_interrupt_handler(33, keyboard_handler);
 }
 
