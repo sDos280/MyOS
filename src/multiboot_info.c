@@ -1,4 +1,4 @@
-#include "kernel/print.h"
+#include "kernel/early_print.h"
 #include "mm/pmm.h"
 #include "multiboot_info.h"
 
@@ -9,11 +9,11 @@ static void print_u64_hex(uint64_t value)
 
     if (high != 0)
     {
-        printf("0x%x%08x", high, low);
+        early_printf("0x%x%08x", high, low);
     }
     else
     {
-        printf("0x%x", low);
+        early_printf("0x%x", low);
     }
 }
 
@@ -63,41 +63,41 @@ void multiboot_info_print(uint32_t magic, const multiboot_info_t *mbi)
 {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC)
     {
-        printf("Invalid Multiboot magic: 0x%x\n", magic);
+        early_printf("Invalid Multiboot magic: 0x%x\n", magic);
         return;
     }
 
     if (!mbi)
     {
-        printf("Multiboot info pointer is NULL\n");
+        early_printf("Multiboot info pointer is NULL\n");
         return;
     }
 
-    printf("\n");
-    printf("============================================================\n");
-    printf("                   MULTIBOOT v1 INFORMATION\n");
-    printf("============================================================\n");
+    early_printf("\n");
+    early_printf("============================================================\n");
+    early_printf("                   MULTIBOOT v1 INFORMATION\n");
+    early_printf("============================================================\n");
 
-    printf("Magic: 0x%x\n", magic);
-    printf("Info structure address: 0x%x\n", (uint32_t)mbi);
-    printf("Flags: 0x%x\n", mbi->flags);
+    early_printf("Magic: 0x%x\n", magic);
+    early_printf("Info structure address: 0x%x\n", (uint32_t)mbi);
+    early_printf("Flags: 0x%x\n", mbi->flags);
 
-    printf("\n");
-    printf("-------------------- Basic Memory Info ---------------------\n");
+    early_printf("\n");
+    early_printf("-------------------- Basic Memory Info ---------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_MEMORY)
     {
-        printf("Lower memory: %u KB\n", mbi->mem_lower);
-        printf("Upper memory: %u KB\n", mbi->mem_upper);
-        printf("Total memory estimate: %u KB\n", mbi->mem_lower + mbi->mem_upper);
+        early_printf("Lower memory: %u KB\n", mbi->mem_lower);
+        early_printf("Upper memory: %u KB\n", mbi->mem_upper);
+        early_printf("Total memory estimate: %u KB\n", mbi->mem_lower + mbi->mem_upper);
     }
     else
     {
-        printf("Basic memory info: not provided\n");
+        early_printf("Basic memory info: not provided\n");
     }
 
-    printf("\n");
-    printf("---------------------- Boot Device -------------------------\n");
+    early_printf("\n");
+    early_printf("---------------------- Boot Device -------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_BOOTDEV)
     {
@@ -108,95 +108,95 @@ void multiboot_info_print(uint32_t magic, const multiboot_info_t *mbi)
         uint8_t part2 = (boot_device >> 8) & 0xff;
         uint8_t part3 = boot_device & 0xff;
 
-        printf("Boot device raw: 0x%x\n", boot_device);
-        printf("Drive: 0x%x\n", drive);
-        printf("Partition 1: 0x%x\n", part1);
-        printf("Partition 2: 0x%x\n", part2);
-        printf("Partition 3: 0x%x\n", part3);
+        early_printf("Boot device raw: 0x%x\n", boot_device);
+        early_printf("Drive: 0x%x\n", drive);
+        early_printf("Partition 1: 0x%x\n", part1);
+        early_printf("Partition 2: 0x%x\n", part2);
+        early_printf("Partition 3: 0x%x\n", part3);
     }
     else
     {
-        printf("Boot device: not provided\n");
+        early_printf("Boot device: not provided\n");
     }
 
-    printf("\n");
-    printf("-------------------- Command Line --------------------------\n");
+    early_printf("\n");
+    early_printf("-------------------- Command Line --------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_CMDLINE)
     {
-        printf("Command line address: 0x%x\n", mbi->cmdline);
-        printf("Command line: %s\n", (const char *)mbi->cmdline);
+        early_printf("Command line address: 0x%x\n", mbi->cmdline);
+        early_printf("Command line: %s\n", (const char *)mbi->cmdline);
     }
     else
     {
-        printf("Command line: not provided\n");
+        early_printf("Command line: not provided\n");
     }
 
-    printf("\n");
-    printf("---------------------- Boot Modules ------------------------\n");
+    early_printf("\n");
+    early_printf("---------------------- Boot Modules ------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_MODS)
     {
-        printf("Modules count: %u\n", mbi->mods_count);
-        printf("Modules address: 0x%x\n", mbi->mods_addr);
+        early_printf("Modules count: %u\n", mbi->mods_count);
+        early_printf("Modules address: 0x%x\n", mbi->mods_addr);
 
         multiboot_module_t *mods = (multiboot_module_t *)mbi->mods_addr;
 
         for (uint32_t i = 0; i < mbi->mods_count; i++)
         {
-            printf("\n");
-            printf("Module #%u\n", i);
-            printf("  Start: 0x%x\n", mods[i].mod_start);
-            printf("  End:   0x%x\n", mods[i].mod_end);
-            printf("  Size:  %u bytes\n", mods[i].mod_end - mods[i].mod_start);
-            printf("  Cmdline address: 0x%x\n", mods[i].cmdline);
+            early_printf("\n");
+            early_printf("Module #%u\n", i);
+            early_printf("  Start: 0x%x\n", mods[i].mod_start);
+            early_printf("  End:   0x%x\n", mods[i].mod_end);
+            early_printf("  Size:  %u bytes\n", mods[i].mod_end - mods[i].mod_start);
+            early_printf("  Cmdline address: 0x%x\n", mods[i].cmdline);
 
             if (mods[i].cmdline)
             {
-                printf("  Cmdline: %s\n", (const char *)mods[i].cmdline);
+                early_printf("  Cmdline: %s\n", (const char *)mods[i].cmdline);
             }
             else
             {
-                printf("  Cmdline: none\n");
+                early_printf("  Cmdline: none\n");
             }
         }
     }
     else
     {
-        printf("Modules: not provided\n");
+        early_printf("Modules: not provided\n");
     }
 
-    printf("\n");
-    printf("---------------------- Symbol Info -------------------------\n");
+    early_printf("\n");
+    early_printf("---------------------- Symbol Info -------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_AOUT_SYMS)
     {
-        printf("A.OUT symbol table provided\n");
-        printf("Tab size: 0x%x\n", mbi->u.aout_sym.tabsize);
-        printf("String size: 0x%x\n", mbi->u.aout_sym.strsize);
-        printf("Address: 0x%x\n", mbi->u.aout_sym.addr);
-        printf("Reserved: 0x%x\n", mbi->u.aout_sym.reserved);
+        early_printf("A.OUT symbol table provided\n");
+        early_printf("Tab size: 0x%x\n", mbi->u.aout_sym.tabsize);
+        early_printf("String size: 0x%x\n", mbi->u.aout_sym.strsize);
+        early_printf("Address: 0x%x\n", mbi->u.aout_sym.addr);
+        early_printf("Reserved: 0x%x\n", mbi->u.aout_sym.reserved);
     }
     else if (mbi->flags & MULTIBOOT_INFO_ELF_SHDR)
     {
-        printf("ELF section header table provided\n");
-        printf("Number of sections: %u\n", mbi->u.elf_sec.num);
-        printf("Section header size: %u\n", mbi->u.elf_sec.size);
-        printf("Section headers address: 0x%x\n", mbi->u.elf_sec.addr);
-        printf("String table index: %u\n", mbi->u.elf_sec.shndx);
+        early_printf("ELF section header table provided\n");
+        early_printf("Number of sections: %u\n", mbi->u.elf_sec.num);
+        early_printf("Section header size: %u\n", mbi->u.elf_sec.size);
+        early_printf("Section headers address: 0x%x\n", mbi->u.elf_sec.addr);
+        early_printf("String table index: %u\n", mbi->u.elf_sec.shndx);
     }
     else
     {
-        printf("Symbol info: not provided\n");
+        early_printf("Symbol info: not provided\n");
     }
 
-    printf("\n");
-    printf("---------------------- Memory Map --------------------------\n");
+    early_printf("\n");
+    early_printf("---------------------- Memory Map --------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_MEM_MAP)
     {
-        printf("Memory map address: 0x%x\n", mbi->mmap_addr);
-        printf("Memory map length: %u bytes\n", mbi->mmap_length);
+        early_printf("Memory map address: 0x%x\n", mbi->mmap_addr);
+        early_printf("Memory map length: %u bytes\n", mbi->mmap_length);
 
         uint32_t mmap_end = mbi->mmap_addr + mbi->mmap_length;
 
@@ -206,37 +206,37 @@ void multiboot_info_print(uint32_t magic, const multiboot_info_t *mbi)
             mmap = (multiboot_memory_map_t *)((uint32_t)mmap + mmap->size + sizeof(mmap->size))
         )
         {
-            printf("\n");
-            printf("Memory region:\n");
-            printf("  Entry size: %u\n", mmap->size);
-            printf("  Base addr:  ");
+            early_printf("\n");
+            early_printf("Memory region:\n");
+            early_printf("  Entry size: %u\n", mmap->size);
+            early_printf("  Base addr:  ");
             print_u64_hex(mmap->addr);
-            printf("\n");
+            early_printf("\n");
 
-            printf("  Length:     ");
+            early_printf("  Length:     ");
             print_u64_hex(mmap->len);
-            printf(" bytes\n");
+            early_printf(" bytes\n");
 
-            printf("  End addr:   ");
+            early_printf("  End addr:   ");
             print_u64_hex(mmap->addr + mmap->len);
-            printf("\n");
-            printf("  Type:       %u - %s\n",
+            early_printf("\n");
+            early_printf("  Type:       %u - %s\n",
                    mmap->type,
                    mmap_type_to_string(mmap->type));
         }
     }
     else
     {
-        printf("Memory map: not provided\n");
+        early_printf("Memory map: not provided\n");
     }
 
-    printf("\n");
-    printf("---------------------- Drive Info --------------------------\n");
+    early_printf("\n");
+    early_printf("---------------------- Drive Info --------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_DRIVE_INFO)
     {
-        printf("Drive info address: 0x%x\n", mbi->drives_addr);
-        printf("Drive info length: %u bytes\n", mbi->drives_length);
+        early_printf("Drive info address: 0x%x\n", mbi->drives_addr);
+        early_printf("Drive info length: %u bytes\n", mbi->drives_length);
 
         /*
          * Drive info is a variable-size BIOS-specific structure.
@@ -245,122 +245,122 @@ void multiboot_info_print(uint32_t magic, const multiboot_info_t *mbi)
     }
     else
     {
-        printf("Drive info: not provided\n");
+        early_printf("Drive info: not provided\n");
     }
 
-    printf("\n");
-    printf("-------------------- Config Table --------------------------\n");
+    early_printf("\n");
+    early_printf("-------------------- Config Table --------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_CONFIG_TABLE)
     {
-        printf("Config table address: 0x%x\n", mbi->config_table);
+        early_printf("Config table address: 0x%x\n", mbi->config_table);
     }
     else
     {
-        printf("Config table: not provided\n");
+        early_printf("Config table: not provided\n");
     }
 
-    printf("\n");
-    printf("------------------- Bootloader Name ------------------------\n");
+    early_printf("\n");
+    early_printf("------------------- Bootloader Name ------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME)
     {
-        printf("Bootloader name address: 0x%x\n", mbi->boot_loader_name);
-        printf("Bootloader name: %s\n", (const char *)mbi->boot_loader_name);
+        early_printf("Bootloader name address: 0x%x\n", mbi->boot_loader_name);
+        early_printf("Bootloader name: %s\n", (const char *)mbi->boot_loader_name);
     }
     else
     {
-        printf("Bootloader name: not provided\n");
+        early_printf("Bootloader name: not provided\n");
     }
 
-    printf("\n");
-    printf("----------------------- APM Table --------------------------\n");
+    early_printf("\n");
+    early_printf("----------------------- APM Table --------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_APM_TABLE)
     {
         struct multiboot_apm_info *apm =
             (struct multiboot_apm_info *)mbi->apm_table;
 
-        printf("APM table address: 0x%x\n", mbi->apm_table);
+        early_printf("APM table address: 0x%x\n", mbi->apm_table);
 
         if (apm)
         {
-            printf("Version: 0x%x\n", apm->version);
-            printf("Code segment: 0x%x\n", apm->cseg);
-            printf("Offset: 0x%x\n", apm->offset);
-            printf("16-bit code segment: 0x%x\n", apm->cseg_16);
-            printf("Data segment: 0x%x\n", apm->dseg);
-            printf("Flags: 0x%x\n", apm->flags);
-            printf("Code segment length: %u\n", apm->cseg_len);
-            printf("16-bit code segment length: %u\n", apm->cseg_16_len);
-            printf("Data segment length: %u\n", apm->dseg_len);
+            early_printf("Version: 0x%x\n", apm->version);
+            early_printf("Code segment: 0x%x\n", apm->cseg);
+            early_printf("Offset: 0x%x\n", apm->offset);
+            early_printf("16-bit code segment: 0x%x\n", apm->cseg_16);
+            early_printf("Data segment: 0x%x\n", apm->dseg);
+            early_printf("Flags: 0x%x\n", apm->flags);
+            early_printf("Code segment length: %u\n", apm->cseg_len);
+            early_printf("16-bit code segment length: %u\n", apm->cseg_16_len);
+            early_printf("Data segment length: %u\n", apm->dseg_len);
         }
     }
     else
     {
-        printf("APM table: not provided\n");
+        early_printf("APM table: not provided\n");
     }
 
-    printf("\n");
-    printf("----------------------- VBE Info ---------------------------\n");
+    early_printf("\n");
+    early_printf("----------------------- VBE Info ---------------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_VBE_INFO)
     {
-        printf("VBE control info address: 0x%x\n", mbi->vbe_control_info);
-        printf("VBE mode info address: 0x%x\n", mbi->vbe_mode_info);
-        printf("VBE mode: 0x%x\n", mbi->vbe_mode);
-        printf("VBE interface segment: 0x%x\n", mbi->vbe_interface_seg);
-        printf("VBE interface offset: 0x%x\n", mbi->vbe_interface_off);
-        printf("VBE interface length: %u\n", mbi->vbe_interface_len);
+        early_printf("VBE control info address: 0x%x\n", mbi->vbe_control_info);
+        early_printf("VBE mode info address: 0x%x\n", mbi->vbe_mode_info);
+        early_printf("VBE mode: 0x%x\n", mbi->vbe_mode);
+        early_printf("VBE interface segment: 0x%x\n", mbi->vbe_interface_seg);
+        early_printf("VBE interface offset: 0x%x\n", mbi->vbe_interface_off);
+        early_printf("VBE interface length: %u\n", mbi->vbe_interface_len);
     }
     else
     {
-        printf("VBE info: not provided\n");
+        early_printf("VBE info: not provided\n");
     }
 
-    printf("\n");
-    printf("-------------------- Framebuffer Info ----------------------\n");
+    early_printf("\n");
+    early_printf("-------------------- Framebuffer Info ----------------------\n");
 
     if (mbi->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO)
     {
-        printf("Framebuffer address: ");
+        early_printf("Framebuffer address: ");
         print_u64_hex(mbi->framebuffer_addr);
-        printf("\n");
-        printf("Framebuffer pitch: %u bytes\n", mbi->framebuffer_pitch);
-        printf("Framebuffer width: %u\n", mbi->framebuffer_width);
-        printf("Framebuffer height: %u\n", mbi->framebuffer_height);
-        printf("Framebuffer bpp: %u\n", mbi->framebuffer_bpp);
-        printf("Framebuffer type: %u - %s\n",
+        early_printf("\n");
+        early_printf("Framebuffer pitch: %u bytes\n", mbi->framebuffer_pitch);
+        early_printf("Framebuffer width: %u\n", mbi->framebuffer_width);
+        early_printf("Framebuffer height: %u\n", mbi->framebuffer_height);
+        early_printf("Framebuffer bpp: %u\n", mbi->framebuffer_bpp);
+        early_printf("Framebuffer type: %u - %s\n",
                mbi->framebuffer_type,
                framebuffer_type_to_string(mbi->framebuffer_type));
 
         if (mbi->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED)
         {
-            printf("Palette address: 0x%x\n", mbi->framebuffer_palette_addr);
-            printf("Palette colors: %u\n", mbi->framebuffer_palette_num_colors);
+            early_printf("Palette address: 0x%x\n", mbi->framebuffer_palette_addr);
+            early_printf("Palette colors: %u\n", mbi->framebuffer_palette_num_colors);
         }
         else if (mbi->framebuffer_type == MULTIBOOT_FRAMEBUFFER_TYPE_RGB)
         {
-            printf("Red field position: %u\n", mbi->framebuffer_red_field_position);
-            printf("Red mask size: %u\n", mbi->framebuffer_red_mask_size);
+            early_printf("Red field position: %u\n", mbi->framebuffer_red_field_position);
+            early_printf("Red mask size: %u\n", mbi->framebuffer_red_mask_size);
 
-            printf("Green field position: %u\n", mbi->framebuffer_green_field_position);
-            printf("Green mask size: %u\n", mbi->framebuffer_green_mask_size);
+            early_printf("Green field position: %u\n", mbi->framebuffer_green_field_position);
+            early_printf("Green mask size: %u\n", mbi->framebuffer_green_mask_size);
 
-            printf("Blue field position: %u\n", mbi->framebuffer_blue_field_position);
-            printf("Blue mask size: %u\n", mbi->framebuffer_blue_mask_size);
+            early_printf("Blue field position: %u\n", mbi->framebuffer_blue_field_position);
+            early_printf("Blue mask size: %u\n", mbi->framebuffer_blue_mask_size);
         }
     }
     else
     {
-        printf("Framebuffer info: not provided\n");
+        early_printf("Framebuffer info: not provided\n");
     }
 
-    printf("\n");
-    printf("============================================================\n");
-    printf("                 END OF MULTIBOOT INFORMATION\n");
-    printf("============================================================\n");
-    printf("\n");
+    early_printf("\n");
+    early_printf("============================================================\n");
+    early_printf("                 END OF MULTIBOOT INFORMATION\n");
+    early_printf("============================================================\n");
+    early_printf("\n");
 }
 
 void multiboot_info_invalidate_unavailable_memory(multiboot_info_t *mbi)
@@ -370,12 +370,12 @@ void multiboot_info_invalidate_unavailable_memory(multiboot_info_t *mbi)
 
     if (!(mbi->flags & MULTIBOOT_INFO_MEM_MAP))
     {
-        printf("Memory map: not provided. Unable to check what memory is vailable");
+        early_printf("Memory map: not provided. Unable to check what memory is vailable");
         return;
     }
 
-    printf("Memory map address: 0x%x\n", mbi->mmap_addr);
-    printf("Memory map length: %u bytes\n", mbi->mmap_length);
+    early_printf("Memory map address: 0x%x\n", mbi->mmap_addr);
+    early_printf("Memory map length: %u bytes\n", mbi->mmap_length);
 
     uint32_t mmap_end = mbi->mmap_addr + mbi->mmap_length;
 

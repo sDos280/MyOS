@@ -1,5 +1,6 @@
 
 #include "kernel/description_tables.h"
+#include "kernel/early_print.h"
 #include "kernel/print.h"
 #include "kernel/screen.h"
 #include "kernel/timer.h"
@@ -33,20 +34,16 @@ uint8_t temp_buffer[50 * sizeof(event_t)];
 
 // Entry point called by GRUB
 void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
-    tty_init(&tty); /* FIX: new tty implementation needs heap initiated first */
-
-    /* TEMP FIX */
-    tty.event_handler.events_queue.buffer = temp_buffer;
-    tty.event_handler.events_queue.capacity = 50;
-    tty.event_handler.events_queue.element_size = sizeof(event_t);
-    tty.event_handler.events_queue.head = 0;
-    tty.event_handler.events_queue.tail = 0;
-    tty.event_handler.events_queue.count = 0;
-
-    print_set_tty(&tty);
+    early_print_init();
 
     if (multiboot_magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-        PANIC("Error: multiboot magic number unknown");
+        early_printf("KERNEL PANIC: %s at %s:%d in %s()\n",          
+               "Error: multiboot magic number unknown", 
+               __FILE__, 
+               __LINE__, 
+               __func__);         
+        while (1)__asm__ __volatile__("hlt");                      
+        
     }
 
     /* remember, when we get here, lower half of the kernel is still mapped*/
@@ -56,39 +53,41 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     multiboot_info_print(multiboot_magic, lower_multiboot_info_structure);
 
     pmm_init();  // initialize physical memory manager (will be needed for invalidation of invalide memory address)
-    printf("Physical memory initialized.\n");
+    early_printf("Physical memory initialized.\n");
 
     multiboot_info_invalidate_unavailable_memory(lower_multiboot_info_structure);
 
     gdt_init();
-    printf("GDT initialized.\n");
+    early_printf("GDT initialized.\n");
 
     idt_init();
-    printf("IDT initialized.\n");
+    early_printf("IDT initialized.\n");
 
     paging_init(); // init paging module
-    printf("Paging initialized.\n");
+    early_printf("Paging initialized.\n");
 
     heap_init();  // Initialize heap module
-    printf("Heap initialized.\n");
+    early_printf("Heap initialized.\n");
 
     timer_init(1000); // Initialize timer to 1000Hz
-    printf("Timer initialized.\n");
+    early_printf("Timer initialized.\n");
     
     syscall_init();  // initialize the syscall module 
+    early_printf("Syscall module  initialized.\n");
 
     keyboard_driver_init();  // initialize the keyboard driver
-    printf("Keyboard driver initialized.\n");
+    early_printf("Keyboard driver initialized.\n");
 
     ata_driver_init();  // initiate the ata driver
-    printf("Ata driver initialized.\n");
+    early_printf("Ata driver initialized.\n");
 
     scheduler_init(); // initialize the scheduler
-    printf("Scheduler initialized.\n");
+    early_printf("Scheduler initialized.\n");
     
     asm volatile ("sti"); // enable interrupts
     
     tty_init(&tty); /* initialize tty again after all modules initialized (heap is now initizlied)*/
+    print_set_tty(&tty);
     
     /* setup information on the first primery master drive */
     identify_device_data_t identify_buf;

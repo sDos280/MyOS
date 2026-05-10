@@ -97,6 +97,20 @@ debug: iso $(VIRTUAL_DISK)
 	$(QEMU) -m 4G -cdrom $(ISO_IMAGE) -s -S -hda $(VIRTUAL_DISK)
 
 # =========================
+# Hard Debug - remove reboot and shutdown
+# =========================
+hard_debug: CFLAGS += -g
+hard_debug: iso $(VIRTUAL_DISK)
+	$(QEMU) -m 4G \
+		-cdrom $(ISO_IMAGE) \
+		-hda $(VIRTUAL_DISK) \
+		-s -S \
+		-no-reboot \
+		-no-shutdown \
+		-d int,cpu_reset \
+		-D qemu.log
+
+# =========================
 # Virtual disk
 # =========================
 $(VIRTUAL_DISK):

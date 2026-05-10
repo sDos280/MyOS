@@ -5,11 +5,8 @@
 
 void tty_init(tty_t *tty)
 {
-    terminal_set_foreground_colour(&tty->terminal, LIGHT_GRAY_COLOUR);
-    terminal_set_background_colour(&tty->terminal, BLACK_COLOUR);
-    terminal_clean_buffer(&tty->terminal);
-    event_init_event_handler(&tty->event_handler);
     terminal_init(&tty->terminal);
+    event_init_event_handler(&tty->event_handler);
 }
 
 void tty_clean_terminal_buffers(tty_t * tty) 

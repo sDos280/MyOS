@@ -191,6 +191,9 @@ void terminal_write_char(terminal_t *terminal, char c)
         flush_screen = 1;
     }
 
+    uint32_t buffer_row;
+    uint32_t buffer_column;
+
     switch (c)
     {
     case '\n':
@@ -200,14 +203,16 @@ void terminal_write_char(terminal_t *terminal, char c)
         break;
 
     default:
-        terminal->text_buffer[terminal->row][terminal->column] = c;
+        buffer_row = terminal->row % TERMINAL_ROWS;
+        buffer_column = terminal->column % TERMINAL_COLUMNS;
+        terminal->text_buffer[buffer_row][buffer_column] = c;
         colour = terminal->backgroup_colour | terminal->foregroup_colour;
-        terminal->colour_buffer[terminal->row][terminal->column] = colour;
+        terminal->colour_buffer[buffer_row][buffer_column] = colour;
         terminal->column++;
         break;
     }
 
-    if (terminal->column >= SCREEN_COLUMNS)
+    if (terminal->column >= TERMINAL_COLUMNS)
     {
         terminal->column = 0;
         terminal->row++;
