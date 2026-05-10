@@ -165,7 +165,7 @@ ring_queue_status_t ring_queue_pop(ring_queue_t *queue,
     return RING_QUEUE_OK;
 }
 
-ring_queue_status_t ring_queue_peek(const ring_queue_t *queue,
+ring_queue_status_t ring_queue_peek(ring_queue_t *queue,
                                     void *out_element)
 {
     uint32_t offset;

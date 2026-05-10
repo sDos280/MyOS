@@ -399,7 +399,7 @@ void multiboot_info_invalidate_unavailable_memory(multiboot_info_t *mbi)
              p <= FRAME_MASK(mmap->size + mmap->addr); 
              p += FRAME_SIZE) 
         {
-            pmm_alloc_frame_addr(p);
+            pmm_alloc_frame_addr((void *)(uint32_t)p);
         }
     }
 }

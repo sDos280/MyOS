@@ -1,8 +1,9 @@
 #include "kernel/terminal.h"
+#include "utils/utils.h"
 
-static const char *terminal_parse_ansi_escape(terminal_t *terminal, const char *s);
+static const char *terminal_parse_ansi_escape(terminal_t *terminal, char *s);
 
-static const char *terminal_parse_ansi_escape(terminal_t *terminal, const char *s)
+static const char *terminal_parse_ansi_escape(terminal_t *terminal, char *s)
 {
     char light = 0;
     char real_color;
@@ -241,7 +242,7 @@ void terminal_write_string(terminal_t *terminal, char * str)
         /* check if command starts here */
         if ((str[i] == '\033') && (i + 1 < TERMINAL_MAX_STRING_PRINT) && (str[i + 1] == '['))
         {
-            char *new_str = terminal_parse_ansi_escape(terminal, &str[i]);
+            const char *new_str = terminal_parse_ansi_escape(terminal, &str[i]);
 
             /* jump over the command */
             if (new_str != &str[i])

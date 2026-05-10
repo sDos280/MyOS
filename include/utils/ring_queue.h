@@ -116,7 +116,7 @@ ring_queue_status_t ring_queue_pop(ring_queue_t *queue,
  * @out_element  Out: pointer to writable memory where the front element is copied.
  * @return       RING_QUEUE_OK on success, error code otherwise.
  */
-ring_queue_status_t ring_queue_peek(const ring_queue_t *queue,
+ring_queue_status_t ring_queue_peek(ring_queue_t *queue,
                                     void *out_element);
 
 /**

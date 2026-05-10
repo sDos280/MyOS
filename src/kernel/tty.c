@@ -19,7 +19,7 @@ void tty_clean_terminal_buffers(tty_t * tty)
 
 void tty_write_string(tty_t *tty, char *str)
 {
-    terminal_write_string(tty, str);
+    terminal_write_string(&tty->terminal, str);
 }
 
 void tty_handle_event(tty_t *tty)
