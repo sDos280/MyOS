@@ -1,6 +1,6 @@
 #include "kernel/print.h"
-#include "multiboot.h"
-#include "types.h"
+#include "mm/pmm.h"
+#include "multiboot_info.h"
 
 static void print_u64_hex(uint64_t value)
 {
@@ -361,4 +361,45 @@ void multiboot_print_info(uint32_t magic, const multiboot_info_t *mbi)
     printf("                 END OF MULTIBOOT INFORMATION\n");
     printf("============================================================\n");
     printf("\n");
+}
+
+void multiboot_helper_invalidate_unavailable_memory(multiboot_info_t *mbi)
+{
+    if (!mbi)
+        return;
+
+    if (!(mbi->flags & MULTIBOOT_INFO_MEM_MAP))
+    {
+        printf("Memory map: not provided. Unable to check what memory is vailable");
+        return;
+    }
+
+    printf("Memory map address: 0x%x\n", mbi->mmap_addr);
+    printf("Memory map length: %u bytes\n", mbi->mmap_length);
+
+    uint32_t mmap_end = mbi->mmap_addr + mbi->mmap_length;
+
+    for (
+        multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)mbi->mmap_addr;
+        (uint32_t)mmap < mmap_end;
+        mmap = (multiboot_memory_map_t *)((uint32_t)mmap + mmap->size + sizeof(mmap->size)))
+    {
+        /* if memory is not RAM available, then invalidate that memory region */
+        /* note that all memory information here is physical memory spesified */
+        if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE) continue;
+        
+        #define FRAME_SIZE          0x1000 
+        #define FRAME_MASK(addr)    (addr & 0xFFFFF000) 
+
+        /* check if memory address exceed 4Gb address */
+        /* note that uint64 bit here is gcc magic (we use 62 bit system)*/
+        if (mmap->addr >= 0x100000000ULL) continue;
+
+        for (uint64_t p = FRAME_MASK(mmap->addr); 
+             p <= FRAME_MASK(mmap->size + mmap->addr); 
+             p += FRAME_SIZE) 
+        {
+            pmm_alloc_frame_addr(p);
+        }
+    }
 }

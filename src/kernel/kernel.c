@@ -27,12 +27,13 @@ void p2_main();
 
 void print_process_list(process_t *head);
 
+multiboot_info_t multiboot_info;
+tty_t tty;
+ata_drive_t drive_prime_master;
+uint8_t temp_buffer[50 * sizeof(event_t)];
+
 // Entry point called by GRUB
 void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
-    multiboot_info_t multiboot_info_structure;
-    tty_t tty;
-    ata_drive_t drive_prime_master;
-    uint8_t temp_buffer[50 * sizeof(event_t)];
     tty_init(&tty); /* FIX: new tty implementation needs heap initiated first */
 
     /* TEMP FIX */
@@ -49,19 +50,22 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
         PANIC("Error: multiboot magic number unknown");
     }
 
+    /* remember, when we get here, lower half of the kernel is still mapped*/
+    /* there is a need to copy that before paging */
+    memcpy(&multiboot_info, lower_multiboot_info_structure, sizeof(multiboot_info_t));
+
+    multiboot_print_info(multiboot_magic, &lower_multiboot_info_structure);
+
+    pmm_init();  // initialize physical memory manager (will be needed for invalidation of invalide memory address)
+    printf("Physical memory initialized.\n");
+
+    multiboot_helper_invalidate_unavailable_memory(&lower_multiboot_info_structure);
+
     gdt_init();
     printf("GDT initialized.\n");
 
-    /* there is a need to copy that before paging */
-    memcpy(&multiboot_info_structure, lower_multiboot_info_structure, sizeof(multiboot_info_t));
-
-    multiboot_print_info(multiboot_magic, &multiboot_info_structure);
-
     idt_init();
     printf("IDT initialized.\n");
-    
-    pmm_init();  // initialize physical memory manager
-    printf("Physical memory initialized.\n");
 
     paging_init(); // init paging module
     printf("Paging initialized.\n");
@@ -85,6 +89,8 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     
     asm volatile ("sti"); // enable interrupts
 
+    while (1);
+    
     tty_init(&tty); /* initialize tty again after all modules initialized (heap is now initizlied)*/
     
     /* setup information on the first primery master drive */
