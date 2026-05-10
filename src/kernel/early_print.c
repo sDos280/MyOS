@@ -1,4 +1,5 @@
 #include "kernel/early_print.h"
+#include "kernel/screen.h"
 #include "utils/utils.h"
 #include "arg.h"
 
