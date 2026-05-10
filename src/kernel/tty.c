@@ -130,7 +130,13 @@ void tty_set_anker_state(tty_t *tty, uint8_t state)
             tty->screen_row = tty->row - SCREEN_ROWS + (tty->column != 0);
         }
 
-        screen_flush_tty(tty); /* update the screen */
+        screen_flush_text_and_colour_buffer(
+            &tty->screen_text_buffer[0][0], 
+            &tty->screen_colour_buffer[0][0], 
+            tty->screen_row, 
+            0, 
+            SCREEN_BUFFER_ROWS, 
+            SCREEN_BUFFER_COLUMNS); /* update the screen */
     }
 }
 
@@ -143,7 +149,13 @@ void tty_set_screen_row(tty_t *tty, int32_t row)
     else
         tty->screen_row = SCREEN_BUFFER_ROWS - SCREEN_ROWS;
 
-    screen_flush_tty(tty); /* update the screen */
+    screen_flush_text_and_colour_buffer(
+            &tty->screen_text_buffer[0][0], 
+            &tty->screen_colour_buffer[0][0], 
+            tty->screen_row, 
+            0, 
+            SCREEN_BUFFER_ROWS, 
+            SCREEN_BUFFER_COLUMNS); /* update the screen */
 }
 
 void tty_clean_buffer(tty_t *tty)
@@ -156,7 +168,13 @@ void tty_clean_buffer(tty_t *tty)
     memset(tty->screen_colour_buffer, (BLACK_COLOUR << 4) | LIGHT_GRAY_COLOUR,
            SCREEN_BUFFER_ROWS * SCREEN_BUFFER_COLUMNS);
 
-    screen_flush_tty(tty); /* update the screen */
+    screen_flush_text_and_colour_buffer(
+            &tty->screen_text_buffer[0][0], 
+            &tty->screen_colour_buffer[0][0], 
+            tty->screen_row, 
+            0, 
+            SCREEN_BUFFER_ROWS, 
+            SCREEN_BUFFER_COLUMNS); /* update the screen */
 }
 
 void tty_write_char(tty_t *tty, char c)
@@ -207,7 +225,13 @@ void tty_write_char(tty_t *tty, char c)
     if (print_char_to_screen)
         screen_print_char(c, colour, relative_row, column_copy);
     if (flush_screen == 1)
-        screen_flush_tty(tty);
+        screen_flush_text_and_colour_buffer(
+            &tty->screen_text_buffer[0][0], 
+            &tty->screen_colour_buffer[0][0], 
+            tty->screen_row, 
+            0, 
+            SCREEN_BUFFER_ROWS, 
+            SCREEN_BUFFER_COLUMNS);
 }
 
 void tty_write_string(tty_t *tty, char *str)

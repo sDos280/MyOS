@@ -3,12 +3,11 @@
 
 #include "drivers/keys.h"
 #include "drivers/event_driver.h"
+#include "screen.h"
 #include "types.h"
 
-#define SCREEN_COLUMNS 80
-#define SCREEN_ROWS 25
 #define ROW_FACTOR 6
-#define SCREEN_BUFFER_COLUMNS 80
+#define SCREEN_BUFFER_COLUMNS SCREEN_COLUMNS
 #define SCREEN_BUFFER_ROWS (SCREEN_ROWS * ROW_FACTOR)
 
 #define TTY_ANKERED 0

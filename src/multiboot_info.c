@@ -59,7 +59,7 @@ static const char *framebuffer_type_to_string(uint8_t type)
     }
 }
 
-void multiboot_print_info(uint32_t magic, const multiboot_info_t *mbi)
+void multiboot_info_print(uint32_t magic, const multiboot_info_t *mbi)
 {
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC)
     {
@@ -363,7 +363,7 @@ void multiboot_print_info(uint32_t magic, const multiboot_info_t *mbi)
     printf("\n");
 }
 
-void multiboot_helper_invalidate_unavailable_memory(multiboot_info_t *mbi)
+void multiboot_info_invalidate_unavailable_memory(multiboot_info_t *mbi)
 {
     if (!mbi)
         return;

@@ -16,8 +16,7 @@
 #include "tests/ata_test.h"
 #include "tests/flatfs_test.h"
 #include "tests/heap_test.h"
-#include "tests/multiboot_info_test.h"
-#include "multiboot_helper.h"
+#include "multiboot_info.h"
 #include "multiboot.h"
 #include "utils/utils.h"
 #include "types.h"
@@ -54,12 +53,12 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     /* there is a need to copy that before paging */
     memcpy(&multiboot_info, lower_multiboot_info_structure, sizeof(multiboot_info_t));
 
-    multiboot_print_info(multiboot_magic, &lower_multiboot_info_structure);
+    multiboot_info_print(multiboot_magic, lower_multiboot_info_structure);
 
     pmm_init();  // initialize physical memory manager (will be needed for invalidation of invalide memory address)
     printf("Physical memory initialized.\n");
 
-    multiboot_helper_invalidate_unavailable_memory(&lower_multiboot_info_structure);
+    multiboot_info_invalidate_unavailable_memory(lower_multiboot_info_structure);
 
     gdt_init();
     printf("GDT initialized.\n");
@@ -88,8 +87,6 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     printf("Scheduler initialized.\n");
     
     asm volatile ("sti"); // enable interrupts
-
-    while (1);
     
     tty_init(&tty); /* initialize tty again after all modules initialized (heap is now initizlied)*/
     
