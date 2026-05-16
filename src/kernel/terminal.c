@@ -6,88 +6,133 @@ static const char *terminal_parse_ansi_escape(terminal_t *terminal, char *s);
 static const char *terminal_parse_ansi_escape(terminal_t *terminal, char *s)
 {
     char light = 0;
-    char real_color;
+    char real_color = LIGHT_GRAY_COLOUR;
     char temp;
 
     // s points to ESC
     s += 2; // skip 'ESC' '['
 
     int code = 0;
+    int has_code = 0;
 
     while (*s >= '0' && *s <= '9')
     {
+        has_code = 1;
         code = code * 10 + (*s - '0');
         s++;
     }
 
-    if (*s != 'm')
+    /*
+     * ESC [ ... m
+     * SGR - colors / text style
+     */
+    if (*s == 'm')
     {
-        return s; // unsupported command
+        if (!has_code)
+            code = 0;
+
+        if (code == 0)
+        {
+            terminal_set_foreground_colour(terminal, LIGHT_GRAY_COLOUR);
+            terminal_set_background_colour(terminal, BLACK_COLOUR);
+            return s + 1;
+        }
+
+        temp = code % 10;
+
+        switch (temp)
+        {
+        case 0:
+            real_color = BLACK_COLOUR;
+            break;
+        case 1:
+            real_color = RED_COLOUR;
+            break;
+        case 2:
+            real_color = GREEN_COLOUR;
+            break;
+        case 3:
+            real_color = BROWN_COLOUR;
+            break;
+        case 4:
+            real_color = BLUE_COLOUR;
+            break;
+        case 5:
+            real_color = MEGENTA_COLOUR;
+            break;
+        case 6:
+            real_color = CYAN_COLOUR;
+            break;
+        case 7:
+            real_color = LIGHT_GRAY_COLOUR;
+            break;
+        default:
+            return s + 1;
+        }
+
+        if (code >= 30 && code <= 37)
+        {
+            terminal_set_foreground_colour(terminal, real_color);
+        }
+        else if (code >= 40 && code <= 47)
+        {
+            terminal_set_background_colour(terminal, real_color);
+        }
+        else if (code >= 90 && code <= 97)
+        {
+            terminal_set_foreground_colour(terminal, real_color | LIGHT_COLOUR);
+        }
+        else if (code >= 100 && code <= 107)
+        {
+            terminal_set_background_colour(terminal, real_color | LIGHT_COLOUR);
+        }
+
+        return s + 1; // +1 skip command char
     }
 
-    if (code == 0)
+    /*
+     * ESC [ ... J
+     * Erase display
+     *
+     * 0J - clear from cursor to end of screen
+     * 1J - clear from start to cursor
+     * 2J - clear entire screen
+     *
+     * For now we implement only 2J fully.
+     */
+    if (*s == 'J')
     {
-        terminal_set_foreground_colour(terminal, LIGHT_GRAY_COLOUR);
-        terminal_set_background_colour(terminal, BLACK_COLOUR);
-        goto end;
+        if (!has_code)
+            code = 0;
+
+        switch (code)
+        {
+        case 2:
+            terminal_clean_buffers(terminal);
+            break;
+
+        case 0:
+            /*
+             * Optional future support:
+             * clear from cursor to end of screen.
+             */
+            break;
+
+        case 1:
+            /*
+             * Optional future support:
+             * clear from start of screen to cursor.
+             */
+            break;
+
+        default:
+            break;
+        }
+
+        return s + 1;  // +1 skip command char
     }
 
-    temp = code % 10;
-
-    /* check if code not defined */
-    if (temp >= 0 && code <= 7)
-        goto end;
-
-    switch (temp)
-    {
-    case 0:
-        real_color = BLACK_COLOUR;
-        break;
-    case 1:
-        real_color = RED_COLOUR;
-        break;
-    case 2:
-        real_color = GREEN_COLOUR;
-        break;
-    case 3:
-        real_color = BROWN_COLOUR;
-        break;
-    case 4:
-        real_color = BLUE_COLOUR;
-        break;
-    case 5:
-        real_color = MEGENTA_COLOUR;
-        break;
-    case 6:
-        real_color = CYAN_COLOUR;
-        break;
-    case 7:
-        real_color = LIGHT_GRAY_COLOUR;
-        break;
-
-    default:
-        break;
-    }
-
-    if (code >= 30 && code <= 37)
-    {
-        terminal_set_foreground_colour(terminal, real_color);
-    }
-    else if (code >= 40 && code <= 47)
-    {
-        terminal_set_background_colour(terminal, real_color);
-    }
-    else if (code >= 90 && code <= 97)
-    {
-        terminal_set_foreground_colour(terminal, real_color | LIGHT_COLOUR);
-    }
-    else if (code >= 100 && code <= 107)
-    {
-        terminal_set_background_colour(terminal, real_color | LIGHT_COLOUR);
-    }
-
-end:
-    return s + 1; // skip final 'm'
+    return s; // unsupported command
 }
 
 void terminal_init(terminal_t *terminal)

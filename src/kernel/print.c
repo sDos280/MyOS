@@ -15,7 +15,7 @@ void print_set_tty(tty_t * tty) {
 }
 
 void print_clean_screen() {
-    tty_clean_terminal_buffers(ctty);
+    tty_write_string(ctty, "\033[2J");
 }
 
 void printf(const char* format, ...) {

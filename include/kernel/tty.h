@@ -17,7 +17,6 @@ typedef struct tty_struct {
 } tty_t;
 
 void tty_init(tty_t * tty,  void (*event_handler_func)(event_t));
-void tty_clean_terminal_buffers(tty_t * tty);
 void tty_write_string(tty_t * tty, char * str); /* write a string, max number of chars to print is TTY_MAX_STRING_PRINT */
 void tty_handle_event(tty_t * tty);
 

@@ -10,11 +10,6 @@ void tty_init(tty_t *tty,  void (*event_handler_func)(event_t))
     tty->event_handler_func = event_handler_func;
 }
 
-void tty_clean_terminal_buffers(tty_t * tty) 
-{
-    console_clean_terminal_buffers(&tty->console);
-}
-
 void tty_write_string(tty_t *tty, char *str)
 {
     console_write_string(&tty->console, str);
