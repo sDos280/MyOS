@@ -2,6 +2,7 @@
 #define TERMINAL_H
 
 #include "screen.h"
+#include "multitasking/lock.h"
 #include "types.h"
 
 #define TERMINAL_ROW_FACTOR 6
@@ -35,16 +36,16 @@
 
 typedef struct terminal_struct {
     /* write position */
-    uint32_t row;                                /* row of the next write position */
-    uint32_t column;                             /* column of the next write position */
-    uint32_t screen_row;                         /* the starting row of the buffer that the screen will print from */
+    uint32_t row;                         /* row of the next write position */
+    uint32_t column;                      /* column of the next write position */
+    uint32_t screen_row;                  /* the starting row of the buffer that the screen will print from */
     char text_buffer[TERMINAL_ROWS]
           [TERMINAL_COLUMNS];             /* the text buffer used to save the terminal char data */
     char colour_buffer[TERMINAL_ROWS]
           [TERMINAL_COLUMNS];             /* the colour buffer used to save the terminal colour data */
-    char foregroup_colour;                       /* the current foreground colour */
-    char backgroup_colour;                       /* the current background colour */
-    uint8_t ankered;                             /* the ankered state of the tty */
+    char foregroup_colour;                /* the current foreground colour */
+    char backgroup_colour;                /* the current background colour */
+    uint8_t ankered;                      /* the ankered state of the tty */
 } terminal_t;
 
 void terminal_init(terminal_t *terminal);
@@ -52,7 +53,7 @@ void terminal_set_foreground_colour(terminal_t *terminal, uint8_t colour);
 void terminal_set_background_colour(terminal_t *terminal, uint8_t colour);
 void terminal_set_anker_state(terminal_t *terminal, uint8_t state);
 void terminal_set_screen_row(terminal_t *terminal, int32_t row);
-void terminal_clean_buffer(terminal_t *terminal); /* clear both buffers, doesn't change colors */
+void terminal_clean_buffers(terminal_t *terminal); /* clear both buffers, doesn't change colors */
 void terminal_write_char(terminal_t *terminal, char c); 
 void terminal_write_string(terminal_t *terminal, char * str); /* write a string, max number of chars to print is TERMINAL_MAX_STRING_PRINT */
 

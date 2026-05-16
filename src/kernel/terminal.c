@@ -94,48 +94,55 @@ void terminal_init(terminal_t *terminal)
 {
     terminal_set_foreground_colour(terminal, LIGHT_GRAY_COLOUR);
     terminal_set_background_colour(terminal, BLACK_COLOUR);
-    terminal_clean_buffer(terminal);
+    terminal_clean_buffers(terminal);
 
     terminal->ankered = TERMINAL_ANKERED;
 }
 
 void terminal_set_foreground_colour(terminal_t *terminal, uint8_t colour)
 {
+
     terminal->foregroup_colour = colour;
 }
 
 void terminal_set_background_colour(terminal_t *terminal, uint8_t colour)
 {
+
     terminal->backgroup_colour = colour << 4;
 }
 
 void terminal_set_anker_state(terminal_t *terminal, uint8_t state)
 {
+    /* FIX: there my be a deadlock here, if here (this line) we get keyboard irq that print
+            something to the terminal using termial_write_char, we will get a deadlock,
+            since the terminal's lock wasn't released */
     terminal->ankered = state;
 
-    if (state == TERMINAL_ANKERED)
-    { /* there is a need to reset screen row */
-        if (terminal->row < SCREEN_ROWS)
-        {
-            terminal->screen_row = 0;
-        }
-        else if (terminal->row == SCREEN_ROWS)
-        {
-            terminal->screen_row = terminal->row - (terminal->column != 0);
-        }
-        else
-        { // terminal->row > SCREEN_ROWS
-            terminal->screen_row = terminal->row - SCREEN_ROWS + (terminal->column != 0);
-        }
+    if (state != TERMINAL_ANKERED)
 
-        screen_flush_text_and_colour_buffer(
-            &terminal->text_buffer[0][0], 
-            &terminal->colour_buffer[0][0], 
-            terminal->screen_row, 
-            0, 
-            TERMINAL_ROWS, 
-            TERMINAL_COLUMNS); /* update the screen */
+        return;
+
+    /* there is a need to reset screen row */
+    if (terminal->row < SCREEN_ROWS)
+    {
+        terminal->screen_row = 0;
     }
+    else if (terminal->row == SCREEN_ROWS)
+    {
+        terminal->screen_row = terminal->row - (terminal->column != 0);
+    }
+    else
+    { // terminal->row > SCREEN_ROWS
+        terminal->screen_row = terminal->row - SCREEN_ROWS + (terminal->column != 0);
+    }
+
+    screen_flush_text_and_colour_buffer(
+        &terminal->text_buffer[0][0],
+        &terminal->colour_buffer[0][0],
+        terminal->screen_row,
+        0,
+        TERMINAL_ROWS,
+        TERMINAL_COLUMNS); /* update the screen */
 }
 
 void terminal_set_screen_row(terminal_t *terminal, int32_t row)
@@ -148,15 +155,15 @@ void terminal_set_screen_row(terminal_t *terminal, int32_t row)
         terminal->screen_row = TERMINAL_ROWS - SCREEN_ROWS;
 
     screen_flush_text_and_colour_buffer(
-            &terminal->text_buffer[0][0], 
-            &terminal->colour_buffer[0][0], 
-            terminal->screen_row, 
-            0, 
-            TERMINAL_ROWS, 
-            TERMINAL_COLUMNS); /* update the screen */
+        &terminal->text_buffer[0][0],
+        &terminal->colour_buffer[0][0],
+        terminal->screen_row,
+        0,
+        TERMINAL_ROWS,
+        TERMINAL_COLUMNS); /* update the screen */
 }
 
-void terminal_clean_buffer(terminal_t *terminal)
+void terminal_clean_buffers(terminal_t *terminal)
 {
     /* clear the buffer */
     terminal->column = 0;
@@ -167,12 +174,12 @@ void terminal_clean_buffer(terminal_t *terminal)
            TERMINAL_ROWS * TERMINAL_COLUMNS);
 
     screen_flush_text_and_colour_buffer(
-            &terminal->text_buffer[0][0], 
-            &terminal->colour_buffer[0][0], 
-            terminal->screen_row, 
-            0, 
-            TERMINAL_ROWS, 
-            TERMINAL_COLUMNS); /* update the screen */
+        &terminal->text_buffer[0][0],
+        &terminal->colour_buffer[0][0],
+        terminal->screen_row,
+        0,
+        TERMINAL_ROWS,
+        TERMINAL_COLUMNS); /* update the screen */
 }
 
 void terminal_write_char(terminal_t *terminal, char c)
@@ -221,7 +228,7 @@ void terminal_write_char(terminal_t *terminal, char c)
     if (terminal->row >= TERMINAL_ROWS)
     { /* next writing will overflow the buffer, so clean the buffer complitly */
         terminal->row = 0;
-        terminal_clean_buffer(terminal);
+        terminal_clean_buffers(terminal);
         flush_screen = 1;
     }
 
@@ -229,15 +236,15 @@ void terminal_write_char(terminal_t *terminal, char c)
         screen_print_char(c, colour, relative_row, column_copy);
     if (flush_screen == 1)
         screen_flush_text_and_colour_buffer(
-            &terminal->text_buffer[0][0], 
-            &terminal->colour_buffer[0][0], 
-            terminal->screen_row, 
-            0, 
-            TERMINAL_ROWS, 
+            &terminal->text_buffer[0][0],
+            &terminal->colour_buffer[0][0],
+            terminal->screen_row,
+            0,
+            TERMINAL_ROWS,
             TERMINAL_COLUMNS);
 }
 
-void terminal_write_string(terminal_t *terminal, char * str)
+void terminal_write_string(terminal_t *terminal, char *str)
 {
     for (size_t i = 0; i < TERMINAL_MAX_STRING_PRINT; i++)
     {

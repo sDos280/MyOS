@@ -1,11 +1,11 @@
 #ifndef PANIC_H
 #define PANIC_H
 
-#include "kernel/print.h"
+#include "kernel/early_print.h"
 
 #define PANIC(message)                                         \
     do {                                                        \
-        printf("KERNEL PANIC: %s at %s:%d in %s()\n",          \
+        early_printf("KERNEL PANIC: %s at %s:%d in %s()\n",          \
                message, __FILE__, __LINE__, __func__);         \
         while (1) {                                            \
             __asm__ __volatile__("hlt");                       \
