@@ -1,5 +1,6 @@
 #include "kernel/panic.h"
 #include "kernel/syscall.h"
+#include "kernel/print.h"
 #include "mm/paging.h"
 #include "mm/pmm.h"
 #include "errno.h"

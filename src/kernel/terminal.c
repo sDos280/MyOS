@@ -158,7 +158,7 @@ void terminal_set_background_colour(terminal_t *terminal, uint8_t colour)
 
 void terminal_set_anker_state(terminal_t *terminal, uint8_t state)
 {
-    /* FIX: there my be a deadlock here, if here (this line) we get keyboard irq that print
+    /* FIX: there my be a deadlock here (if we add lockes), if here (this line) we get keyboard irq that print
             something to the terminal using termial_write_char, we will get a deadlock,
             since the terminal's lock wasn't released */
     terminal->ankered = state;

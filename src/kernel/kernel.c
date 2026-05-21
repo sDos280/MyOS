@@ -32,10 +32,6 @@ tty_t tty;
 ata_drive_t drive_prime_master;
 uint8_t temp_buffer[50 * sizeof(event_t)];
 
-void tty_event_handler_func_wrapper(event_t e) {
-    console_handle_event(&tty.console, e);
-}
-
 // Entry point called by GRUB
 void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t multiboot_magic) {
     early_print_init();
@@ -90,7 +86,7 @@ void kernel_main(multiboot_info_t* lower_multiboot_info_structure, uint32_t mult
     
     asm volatile ("sti"); // enable interrupts
     
-    tty_init(&tty, tty_event_handler_func_wrapper); /* initialize tty again after all modules initialized (heap is now initizlied)*/
+    tty_init(&tty); /* initialize tty again after all modules initialized (heap is now initizlied)*/
     print_set_tty(&tty);
     
     /* setup information on the first primery master drive */
